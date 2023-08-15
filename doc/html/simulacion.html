@@ -780,9 +780,13 @@ class Electrodo:
         &#34;&#34;&#34;
         self.calcular_wmax(nervio)
         self.calcular_wlong(funcion, matriz_nodos)
-        self.pesos = np.array(
-            [np.array([wmax * wlong for wlong in lista_wlong]) for wmax, lista_wlong in zip(self.wmax, self.wlong)],
-            dtype=object)
+
+        self.pesos = np.array([
+            np.array([wlong - (1 - wmax) if (wlong - (1 - wmax)) &gt;= 0 else 0
+                      for wlong in lista_wlong])
+            for wmax, lista_wlong in zip(self.wmax, self.wlong)
+        ],
+                              dtype=object)
 
     def sfap_funcion(self, frec_muestreo, velocidad_fibras, tiempo_registro, estimulo, ubicacion_nodos, num_fibras):
         &#34;&#34;&#34;Método que calcula los Potenciales de Acción de Fibra Unica para cada fibra que se encuentra en el Nervio.
@@ -1082,6 +1086,7 @@ class Entorno:
             array_estimulo(numpy.ndarray): Numpy array con la señal de estimulación para cada fibra.
             tiempo_inicio (float): Momento en el que inicia el estímulo. En segundos.
             lista_inicio (list): Lista con los tiempos de inicio para el tren de señales. En segundos.
+            voltaje (float): Voltaje del estímulo. En voltios. Por defecto es 1[V].
         &#34;&#34;&#34;
         self.estimulador = Estimulador(frec_muestreo=frec_muestreo,
                                        tiempo_estimulo=tiempo_estimulo,
@@ -1284,18 +1289,24 @@ Datos del estimulador:
 
         #CAP
         for idx, electrodo in enumerate(self.electrodos):
-            plt.plot(vector_tiempo, electrodo.cap, label=f&#34;CAP Electrodo n°{idx}&#34;)
+            plt.plot(vector_tiempo * 1000, electrodo.cap, label=f&#34;CAP Electrodo n°{idx}&#34;)
 
         #CAP diferencial
-        plt.plot(vector_tiempo, self.cap_dif, label=f&#34;CAP diferencial electrodos {self.capdif_pos1}-{self.capdif_pos2}&#34;)
+        plt.plot(vector_tiempo * 1000,
+                 self.cap_dif,
+                 label=f&#34;CAP diferencial electrodos {self.capdif_pos1}-{self.capdif_pos2}&#34;)
 
         #Vm
-        plt.plot(self.estimulador.vector_tiempo, self.estimulador.estimulo[0], label=&#34;Vm&#34;, color=&#39;gray&#39;, linewidth=0.7)
+        plt.plot(self.estimulador.vector_tiempo * 1000,
+                 self.estimulador.estimulo[0],
+                 label=&#34;Vm&#34;,
+                 color=&#39;gray&#39;,
+                 linewidth=0.7)
 
         plt.title(titulo)
-        plt.xlabel(&#39;Tiempo (s)&#39;)
+        plt.xlabel(&#39;Tiempo (ms)&#39;)
         plt.ylabel(&#39;Amplitud relativa&#39;)
-        plt.legend(fontsize=&#39;xx-small&#39;)
+        plt.legend(fontsize=&#39;small&#39;)
         plt.show()
 
         if guardar is True:
@@ -1716,19 +1727,21 @@ Datos del estimulador:
 <dt><strong><code>grosor</code></strong> :&ensp;<code>int</code>, optional</dt>
 <dd>Grosor del electrodo en micrometros. Por defecto es 0 micrometros. </dd>
 </dl>
+
 <h2 id="args">Keyword Args</h2>
 <dl>
-    <dt><strong><code>pos_x</code></strong> :&ensp;<code>float</code></dt>
-    <dd>Posición del electrodo en el eje x. En micrómetros.</dd>
-    <dt><strong><code>pos_y</code></strong> :&ensp;<code>float</code></dt>
-    <dd>Posición del electrodo en el eje y. En micrómetros.</dd>
-    <dt><strong><code>pos_z</code></strong> :&ensp;<code>float</code></dt>
-    <dd>Posición del electrodo en el eje z. En micrómetros.</dd>
-    <dt><strong><code>radio</code></strong> :&ensp;<code>float</code></dt>
-    <dd>Radio del electrodo tipo Circulo. En micrómetros.</dd>
-    <dt><strong><code>lista_coordenadas</code></strong> :&ensp;<code>list</code></dt>
-    <dd>Coordenadas en micrometros del electrodo tipo Poligono.</dd>
+<dt><strong><code>pos_x</code></strong> :&ensp;<code>float</code></dt>
+<dd>Posición del electrodo en el eje x. En micrómetros.</dd>
+<dt><strong><code>pos_y</code></strong> :&ensp;<code>float</code></dt>
+<dd>Posición del electrodo en el eje y. En micrómetros.</dd>
+<dt><strong><code>pos_z</code></strong> :&ensp;<code>float</code></dt>
+<dd>Posición del electrodo en el eje z. En micrómetros.</dd>
+<dt><strong><code>radio</code></strong> :&ensp;<code>float</code></dt>
+<dd>Radio del electrodo tipo Circulo. En micrómetros.</dd>
+<dt><strong><code>lista_coordenadas</code></strong> :&ensp;<code>list</code></dt>
+<dd>Coordenadas en micrómetros del electrodo tipo Poligono.</dd>
 </dl>
+
 <h2 id="raises">Raises</h2>
 <dl>
 <dt><code><a title="simulacion.InputError" href="#simulacion.InputError">InputError</a></code></dt>
@@ -1890,9 +1903,13 @@ Datos del estimulador:
         &#34;&#34;&#34;
         self.calcular_wmax(nervio)
         self.calcular_wlong(funcion, matriz_nodos)
-        self.pesos = np.array(
-            [np.array([wmax * wlong for wlong in lista_wlong]) for wmax, lista_wlong in zip(self.wmax, self.wlong)],
-            dtype=object)
+
+        self.pesos = np.array([
+            np.array([wlong - (1 - wmax) if (wlong - (1 - wmax)) &gt;= 0 else 0
+                      for wlong in lista_wlong])
+            for wmax, lista_wlong in zip(self.wmax, self.wlong)
+        ],
+                              dtype=object)
 
     def sfap_funcion(self, frec_muestreo, velocidad_fibras, tiempo_registro, estimulo, ubicacion_nodos, num_fibras):
         &#34;&#34;&#34;Método que calcula los Potenciales de Acción de Fibra Unica para cada fibra que se encuentra en el Nervio.
@@ -1985,9 +2002,13 @@ Datos del estimulador:
     &#34;&#34;&#34;
     self.calcular_wmax(nervio)
     self.calcular_wlong(funcion, matriz_nodos)
-    self.pesos = np.array(
-        [np.array([wmax * wlong for wlong in lista_wlong]) for wmax, lista_wlong in zip(self.wmax, self.wlong)],
-        dtype=object)</code></pre>
+
+    self.pesos = np.array([
+        np.array([wlong - (1 - wmax) if (wlong - (1 - wmax)) &gt;= 0 else 0
+                  for wlong in lista_wlong])
+        for wmax, lista_wlong in zip(self.wmax, self.wlong)
+    ],
+                          dtype=object)</code></pre>
 </details>
 </dd>
 <dt id="simulacion.Electrodo.calcular_wlong"><code class="name flex">
@@ -2329,6 +2350,7 @@ Datos del estimulador:
             array_estimulo(numpy.ndarray): Numpy array con la señal de estimulación para cada fibra.
             tiempo_inicio (float): Momento en el que inicia el estímulo. En segundos.
             lista_inicio (list): Lista con los tiempos de inicio para el tren de señales. En segundos.
+            voltaje (float): Voltaje del estímulo. En voltios. Por defecto es 1[V].
         &#34;&#34;&#34;
         self.estimulador = Estimulador(frec_muestreo=frec_muestreo,
                                        tiempo_estimulo=tiempo_estimulo,
@@ -2531,18 +2553,24 @@ Datos del estimulador:
 
         #CAP
         for idx, electrodo in enumerate(self.electrodos):
-            plt.plot(vector_tiempo, electrodo.cap, label=f&#34;CAP Electrodo n°{idx}&#34;)
+            plt.plot(vector_tiempo * 1000, electrodo.cap, label=f&#34;CAP Electrodo n°{idx}&#34;)
 
         #CAP diferencial
-        plt.plot(vector_tiempo, self.cap_dif, label=f&#34;CAP diferencial electrodos {self.capdif_pos1}-{self.capdif_pos2}&#34;)
+        plt.plot(vector_tiempo * 1000,
+                 self.cap_dif,
+                 label=f&#34;CAP diferencial electrodos {self.capdif_pos1}-{self.capdif_pos2}&#34;)
 
         #Vm
-        plt.plot(self.estimulador.vector_tiempo, self.estimulador.estimulo[0], label=&#34;Vm&#34;, color=&#39;gray&#39;, linewidth=0.7)
+        plt.plot(self.estimulador.vector_tiempo * 1000,
+                 self.estimulador.estimulo[0],
+                 label=&#34;Vm&#34;,
+                 color=&#39;gray&#39;,
+                 linewidth=0.7)
 
         plt.title(titulo)
-        plt.xlabel(&#39;Tiempo (s)&#39;)
+        plt.xlabel(&#39;Tiempo (ms)&#39;)
         plt.ylabel(&#39;Amplitud relativa&#39;)
-        plt.legend(fontsize=&#39;xx-small&#39;)
+        plt.legend(fontsize=&#39;small&#39;)
         plt.show()
 
         if guardar is True:
@@ -2655,6 +2683,7 @@ Datos del estimulador:
 <dt><strong><code>funcion</code></strong> :&ensp;<code>Callable</code>, optional</dt>
 <dd>Función con la cual se calcularán los pesos para cada nodo. Por defecto se usa la 'funcion_trapecio'.</dd>
 </dl>
+
 <h2 id="args">Keyword Args</h2>
 <dl>
 <dt><strong><code>pos_x</code></strong> :&ensp;<code>float</code></dt>
@@ -2666,8 +2695,9 @@ Datos del estimulador:
 <dt><strong><code>radio</code></strong> :&ensp;<code>float</code></dt>
 <dd>Radio del electrodo tipo Circulo. En micrómetros.</dd>
 <dt><strong><code>lista_coordenadas</code></strong> :&ensp;<code>list</code></dt>
-<dd>Coordenadas en micrometros del electrodo tipo Poligono.</dd>
+<dd>Coordenadas en micrómetros del electrodo tipo Poligono.</dd>
 </dl>
+
 <h2 id="raises">Raises</h2>
 <dl>
 <dt><code><a title="simulacion.ObjectCreationError" href="#simulacion.ObjectCreationError">ObjectCreationError</a></code></dt>
@@ -2719,6 +2749,7 @@ Datos del estimulador:
 <dt><strong><code>tiempo_estimulo</code></strong> :&ensp;<code>float</code></dt>
 <dd>Tiempo total en el que se realizará la medición. En segundos.</dd>
 </dl>
+
 <h2 id="args">Keyword Args</h2>
 <dl>
 <dt><strong><code>duracion</code></strong> :&ensp;<code>float</code></dt>
@@ -2733,9 +2764,12 @@ Datos del estimulador:
 <dd>Numpy array con la señal de estimulación para cada fibra.</dd>
 <dt><strong><code>tiempo_inicio</code></strong> :&ensp;<code>float</code></dt>
 <dd>Momento en el que inicia el estímulo. En segundos.</dd>
-<dt><strong><code>lista_inicio</code></strong> :&ensp;<code>float</code></dt>
+<dt><strong><code>lista_inicio</code></strong> :&ensp;<code>list</code></dt>
 <dd>Lista con los tiempos de inicio para el tren de señales. En segundos.</dd>
-</dl></div>
+<dt><strong><code>voltaje</code></strong> :&ensp;<code>float</code></dt>
+<dd>Voltaje del estímulo. En voltios. Por defecto es 1[V].</dd>
+</dl>
+
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -2756,6 +2790,7 @@ Datos del estimulador:
         array_estimulo(numpy.ndarray): Numpy array con la señal de estimulación para cada fibra.
         tiempo_inicio (float): Momento en el que inicia el estímulo. En segundos.
         lista_inicio (list): Lista con los tiempos de inicio para el tren de señales. En segundos.
+        voltaje (float): Voltaje del estímulo. En voltios. Por defecto es 1[V].
     &#34;&#34;&#34;
     self.estimulador = Estimulador(frec_muestreo=frec_muestreo,
                                    tiempo_estimulo=tiempo_estimulo,
@@ -2807,13 +2842,15 @@ Por defecto es 7.6. En [m/s/micrometro].</dd>
 <dt><strong><code>desplazamiento</code></strong> :&ensp;<code>float</code>, optional</dt>
 <dd>Desplazamiento de todos los nodos en las fibras. En micrometros. Por defecto es 0. </dd>
 </dl>
+
 <h2 id="args">Keyword Args</h2>
 <dl>
 <dt><strong><code>array_fibras</code></strong> :&ensp;<code>numpy.ndarray</code></dt>
 <dd>Numpy array con 4 columnas: posición x, posición y, diámetro y velocidad de cada fibra, en el método de población manual.</dd>
 <dt><strong><code>ubicacion_archivo</code></strong> :&ensp;<code>str</code></dt>
 <dd>String con la ubicación del archivo csv para el método de población desde_archivo. El archivo csv debe contener 4 columnas: posición x, posición y, diámetro y velocidad de cada fibra.</dd>
-</dl></div>
+</dl>
+
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -2903,15 +2940,18 @@ Por defecto es 7.6. En [m/s/micrometro].</dd>
 <dt><strong><code>nombre_figura</code></strong> :&ensp;<code>str</code></dt>
 <dd>Nombre que se le dará a la figura que se desea guardar. Por defecto es "figura.png".</dd>
 </dl>
-<h2 id="args">Keyword Args</h2>
+
+<h2 id="kwargs">Keyword Args</h2>
 <dl>
-<dt><strong><code>borde_fibras</code></strong> :&ensp;<code>str</code></dt>
+<dt><strong><code>borde_fibras</code></strong> :&ensp;<code>str</code>, optional</dt>
 <dd>Color del borde de las fibras. Se aplica cuando FormaDePloteo es 'fibras_con_diametro'. Por defecto es 'blue'.</dd>
-<dt><strong><code>relleno_fibras</code></strong> :&ensp;<code>str</code></dt>
+<dt><strong><code>relleno_fibras</code></strong> :&ensp;<code>str</code>, optional</dt>
 <dd>Color del relleno de las fibras. Se aplica cuando FormaDePloteo es 'fibras_con_diametro'. Por defecto es 'None'.</dd>
-<dt><strong><code>color_fibras</code></strong> :&ensp;<code>str</code></dt>
+<dt><strong><code>color_fibras</code></strong> :&ensp;<code>str</code>, optional</dt>
 <dd>Color de las fibras. Se aplica cuando FormaDePloteo es 'fibras_sin_diametro'. Por defecto es 'red'.</dd>
 </dl>
+
+
 <h2 id="raises">Raises</h2>
 <dl>
 <dt><code><a title="simulacion.InputError" href="#simulacion.InputError">InputError</a></code></dt>
@@ -3016,18 +3056,24 @@ Por defecto es 7.6. En [m/s/micrometro].</dd>
 
     #CAP
     for idx, electrodo in enumerate(self.electrodos):
-        plt.plot(vector_tiempo, electrodo.cap, label=f&#34;CAP Electrodo n°{idx}&#34;)
+        plt.plot(vector_tiempo * 1000, electrodo.cap, label=f&#34;CAP Electrodo n°{idx}&#34;)
 
     #CAP diferencial
-    plt.plot(vector_tiempo, self.cap_dif, label=f&#34;CAP diferencial electrodos {self.capdif_pos1}-{self.capdif_pos2}&#34;)
+    plt.plot(vector_tiempo * 1000,
+             self.cap_dif,
+             label=f&#34;CAP diferencial electrodos {self.capdif_pos1}-{self.capdif_pos2}&#34;)
 
     #Vm
-    plt.plot(self.estimulador.vector_tiempo, self.estimulador.estimulo[0], label=&#34;Vm&#34;, color=&#39;gray&#39;, linewidth=0.7)
+    plt.plot(self.estimulador.vector_tiempo * 1000,
+             self.estimulador.estimulo[0],
+             label=&#34;Vm&#34;,
+             color=&#39;gray&#39;,
+             linewidth=0.7)
 
     plt.title(titulo)
-    plt.xlabel(&#39;Tiempo (s)&#39;)
+    plt.xlabel(&#39;Tiempo (ms)&#39;)
     plt.ylabel(&#39;Amplitud relativa&#39;)
-    plt.legend(fontsize=&#39;xx-small&#39;)
+    plt.legend(fontsize=&#39;small&#39;)
     plt.show()
 
     if guardar is True:
@@ -3318,6 +3364,7 @@ Datos del estimulador:
 <dt><strong><code>tipo_estimulo</code></strong> :&ensp;<code>str</code></dt>
 <dd>Tipo de estímulo que se creará. Se detallan en el enum TipoEstimulo.</dd>
 </dl>
+
 <h2 id="args">Keyword Args</h2>
 <dl>
 <dt><strong><code>duracion</code></strong> :&ensp;<code>float</code></dt>
@@ -3335,6 +3382,7 @@ Datos del estimulador:
 <dt><strong><code>array_estimulo</code></strong> :&ensp;<code>numpy.ndarray</code></dt>
 <dd>Numpy array con la señal de estimulación.</dd>
 </dl>
+
 <h2 id="raises">Raises</h2>
 <dl>
 <dt><code><a title="simulacion.InputError" href="#simulacion.InputError">InputError</a></code></dt>
@@ -4481,6 +4529,7 @@ Datos del estimulador:
 <dt><strong><code>velocidad</code></strong> :&ensp;<code>float</code>,optional</dt>
 <dd>Velocidad de la fibra en [m/s].</dd>
 </dl>
+
 <h2 id="args">Keyword Args</h2>
 <dl>
 <dt><strong><code>array_fibras</code></strong> :&ensp;<code>numpy.ndarray</code></dt>
@@ -4488,6 +4537,7 @@ Datos del estimulador:
 <dt><strong><code>ubicacion_archivo</code></strong> :&ensp;<code>str</code></dt>
 <dd>String con la ubicación del archivo csv para el método de población desde_archivo. El archivo csv debe contener 4 columnas: posición x, posición y, diámetro y velocidad de cada fibra.</dd>
 </dl>
+
 <h2 id="raises">Raises</h2>
 <dl>
 <dt><code><a title="simulacion.InputError" href="#simulacion.InputError">InputError</a></code></dt>
