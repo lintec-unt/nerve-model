@@ -613,7 +613,6 @@ class Electrodo:
             tipo (str): Tipo de electrodo. Puede ser los enumerados en el Enum TipoElectrodo.
             zona_influencia (float): Es la zona a cualquiera de los lados a la cual tiene alcance el electrodo. En micrometros.
             grosor (int, optional): Grosor del electrodo en micrometros. Por defecto es 0 micrometros. 
-            **kwargs: Argumentos adicionales con nombre.
         
         Keyword Args:
             pos_x (float): Posición del electrodo en el eje x. En micrómetros.
@@ -978,7 +977,7 @@ class Entorno:
         Args:
             diametro (float): Diámetro del Nervio. En micrometros.
             longitud (float): Longitud del nervio. En micrometros.
-            num_fibras (int): Número de fibras con la que se quiere poblar el nervio. Por defecto es 200.
+            num_fibras (int): Número de fibras con la que se quiere poblar el nervio.
             distancia_nodos (float): Distancia promedio entre nodos en las fibras. En micrometros.
             diametro_fibra (float): Diámetro de las fibras. En micrometros. Por defecto es None.
             var_diametro (float): Variación en micrometros del diámetro de las fibras con la distribución normal (Sigma). Por defecto es 0.
@@ -1059,7 +1058,7 @@ class Entorno:
             array_estimulo(numpy.ndarray): Numpy array con la señal de estimulación para cada fibra.
             tiempo_inicio (float): Momento en el que inicia el estímulo. En segundos.
             lista_inicio (list): Lista con los tiempos de inicio para el tren de señales. En segundos.
-            voltaje (float): Voltaje del estímulo. En voltios. Por defecto es 1 V.
+            voltaje (float): Voltaje del estímulo. En voltios. Por defecto es 1[V].
         """
         self.estimulador = Estimulador(frec_muestreo=frec_muestreo,
                                        tiempo_estimulo=tiempo_estimulo,
