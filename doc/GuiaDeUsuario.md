@@ -6,7 +6,7 @@ Simulador de la actividad electrofisiológica en un haz de fibras nerviosas miel
 
 ### Sobre el modelo
 
-Este es un modelo de un haz de fibras mielínicas por las cuales viaja un potencial de acción, y electrodos que captan los Potencial de Acción Compuesto (CAP) a partir de los Potenciales de Acción de Fibra Única (SFAP) de cada fibra. 
+Este es un modelo de un haz de fibras mielínicas por las cuales viaja un potencial de acción, y electrodos que captan los Potencial de Acción Compuesto (CAP) a partir de los Potenciales de Acción de Fibra Única (SFAP) de cada fibra.
 
 ### Prerrequisitos
 
@@ -20,7 +20,7 @@ pip install requirements.txt
 
 ## Guía de usuario
 
-Para poder realizar las simulaciones, se tiene que crear un Entorno, el cual será el entorno de trabajo. El mismo contará de un nervio que contiene fibras mielínicas, electrodos con los cuales se harán los registros y un estimulador con el cual obtendremos la señal de entrada al nervio. Manejaremos todos los elementos necesarios para realizar el experimento desde el Entorno.
+Para poder realizar las simulaciones, se tiene que crear un Entorno, el cual será el entorno de trabajo. El mismo contará de un nervio que contiene fibras mielínicas, electrodos con los cuales se harán los registros y un generador con el cual obtendremos la señal de entrada al nervio. Manejaremos todos los elementos necesarios para realizar el experimento desde el Entorno.
 
 Lo primero es importar el módulo:
 
@@ -78,12 +78,12 @@ mi_experimento.crear_electrodo(tipo = 'punto',
 															 funcion=simulacion.funcion_trapecio)
 ```
 
-Por último, se crea el estímulo, el cual será la señal de entrada con la cual se estimularán todas fibras:
+Por último, se crea el impulso, el cual será la señal que se propagará por todas fibras:
 
 ```python
-mi_experimento.crear_estimulo(tipo_estimulo = 'potencial_de_accion',
+mi_experimento.crear_impulso(tipo_impulso = 'potencial_de_accion',
 															frec_muestreo = 100000,
-															tiempo_estimulo = 0.003,
+															tiempo_impulso = 0.003,
 															tiempo_inicio = 0.001,
 															frec_corte = 2000,
 															orden_filtro = 2)
@@ -103,7 +103,7 @@ Por último, para calcular el Potencial de Acción Compuesto Diferencial entre d
 mi_experimento.cap_diferencial(posicion_1 = 0, posicion_2 = 1)
 ```
 
-Para obtener las gráficas del estímulo, los CAPs y el CAP diferencial se ejecuta la siguiente línea:
+Para obtener las gráficas del impulso nervioso, los CAPs y el CAP diferencial se ejecuta la siguiente línea:
 
 ```python
 mi_experimento.graficas()
@@ -154,10 +154,10 @@ experimento_02.crear_electrodo(tipo = 'poligono',
 													     grosor=1000,
 														   funcion=simulacion.funcion_trapecio)
 
-# Estimulo
-experimento_02.crear_estimulo(tipo_estimulo = 'potencial_de_accion',
+# Impulso
+experimento_02.crear_impulso(tipo_impulso = 'potencial_de_accion',
 															frec_muestreo = 100000,
-															tiempo_estimulo = 0.003,
+															tiempo_impulso = 0.003,
 															tiempo_inicio = 0.001,
 															frec_corte = 2000,
 															orden_filtro = 2)
@@ -195,7 +195,7 @@ experimento_03.crear_nervio(diametro = 1300,
 experimento_03.crear_electrodo(tipo = 'punto',
 															 pos_x = 0,
 															 pos_y = -650,
-															 pos_z = 20000,										
+															 pos_z = 20000,
 															 zona_influencia = 4000,
 															 grosor=1000,
 															 funcion=simulacion.funcion_trapecio)
@@ -203,15 +203,15 @@ experimento_03.crear_electrodo(tipo = 'punto',
 experimento_03.crear_electrodo(tipo = 'punto',
 															 pos_x = 0,
 															 pos_y = -650,
-															 pos_z = 40000,										
+															 pos_z = 40000,
 															 zona_influencia = 4000,
 															 grosor=1000,
 															 funcion=simulacion.funcion_trapecio)
 
-# Estimulo
-experimento_03.crear_estimulo(tipo_estimulo = 'potencial_de_accion',
+# Impulso
+experimento_03.crear_impulso(tipo_impulso = 'potencial_de_accion',
 															frec_muestreo = 100000,
-															tiempo_estimulo = 0.003,
+															tiempo_impulso = 0.003,
 															tiempo_inicio = 0.001,
 															frec_corte = 2000,
 															orden_filtro = 2)
