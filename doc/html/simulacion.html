@@ -78,7 +78,7 @@ class VariacionNodos(Enum):
     normal = &#39;normal&#39;
 
 
-class TipoEstimulo(Enum):
+class TipoImpulso(Enum):
     potencial_de_accion = &#39;potencial_de_accion&#39;
     cuadrado = &#39;cuadrado&#39;
     manual = &#39;manual&#39;
@@ -202,57 +202,57 @@ def funcion_constante(x, z, d, a, v):
     return 0
 
 
-def insertar_estimulo(estimulo, posicion, fm, tiempo_registro, velocidad, peso):
+def insertar_impulso(impulso, posicion, fm, tiempo_registro, velocidad, peso):
     &#34;&#34;&#34;Función que desplaza un numpy array dada una posición de inicio.
 
     Args:
-        estimulo (numpy.ndarray): Señal que es desplazada.
-        posicion (float): Posición hasta la que se desplaza el inicio del estímulo. En micrometros.
+        impulso (numpy.ndarray): Señal que es desplazada.
+        posicion (float): Posición hasta la que se desplaza el inicio del impulso. En micrometros.
         fm (float): Frecuencia de muestreo de la señal. En Hz.
         tiempo_registro (float): Tiempo total en el que se hará el registro. En segundos.
         velocidad (float): Velocidad a la cual se desplaza la señal. En m/s.
         peso (float): Factor por el cual se multiplica la señal.
 
     Returns:
-        numpy.ndarray: Devuelve el estímulo desplazado, en el tiempo de registro.
+        numpy.ndarray: Devuelve el impulso desplazado, en el tiempo de registro.
     &#34;&#34;&#34;
     total_muestras = int(tiempo_registro * fm)
-    muestras_estimulo = len(estimulo)
+    muestras_impulso = len(impulso)
     vector = np.zeros(total_muestras)
     inicio = int((posicion * fm) / (velocidad * 1000000))  #retardo
 
     if inicio &lt; total_muestras and peso != 0:
-        if muestras_estimulo &gt; (total_muestras - inicio):
-            muestras_estimulo = total_muestras - inicio
-        vector[inicio:inicio + muestras_estimulo] = estimulo[0:muestras_estimulo] * peso
+        if muestras_impulso &gt; (total_muestras - inicio):
+            muestras_impulso = total_muestras - inicio
+        vector[inicio:inicio + muestras_impulso] = impulso[0:muestras_impulso] * peso
         return vector
 
     return None
 
 
-def array_to_multiarray(array, estimulo, fm, tiempo_registro, velocidad, peso):
-    &#34;&#34;&#34;Función que, dado un array con posiciones, crea un array de arrays, con estímulos desplazados para cada posición.
+def array_to_multiarray(array, impulso, fm, tiempo_registro, velocidad, peso):
+    &#34;&#34;&#34;Función que, dado un array con posiciones, crea un array de arrays, con impulsos desplazados para cada posición.
 
     Args:
-        array (numpy.ndarray): Array que contiene las posiciones con las cuales se hará el desplazamiento del estímulo.
-        estimulo (numpy.ndarray): Señal que es desplazada.
+        array (numpy.ndarray): Array que contiene las posiciones con las cuales se hará el desplazamiento del impulso.
+        impulso (numpy.ndarray): Señal que es desplazada.
         fm (float): Frecuencia de muestreo. En Hz.
         tiempo_registro (float): Tiempo total en el que se hará el registro. En segundos.
         velocidad (float): Velocidad a la cual se desplaza la señal. En m/s.
         peso (float): Factor por el cual se multiplica la señal. 
 
     Returns:
-        numpy.ndarray: Devuelve el array de arrays con los estímulos desplazados.
+        numpy.ndarray: Devuelve el array de arrays con los impulsos desplazados.
     &#34;&#34;&#34;
     total_muestras = int(tiempo_registro * fm)
     multiarray = np.zeros((len(array), total_muestras))
     for i, posicion in enumerate(array):
-        vector = insertar_estimulo(estimulo=estimulo,
-                                   posicion=posicion,
-                                   fm=fm,
-                                   tiempo_registro=tiempo_registro,
-                                   velocidad=velocidad,
-                                   peso=peso[i])
+        vector = insertar_impulso(impulso=impulso,
+                                  posicion=posicion,
+                                  fm=fm,
+                                  tiempo_registro=tiempo_registro,
+                                  velocidad=velocidad,
+                                  peso=peso[i])
         if vector is not None:
             multiarray[i] = vector
     return multiarray
@@ -617,7 +617,6 @@ class Fibra:
         Returns:
             numpy.ndarray: Devuelve un array con la ubicación de los nodos de la fibra.
         &#34;&#34;&#34;
-        #arr = np.arange(-longitud_fibra/2,longitud_fibra*1.5 +1,distancia_nodos)
         arr = np.arange(-longitud_fibra / 2, longitud_fibra * 1.5, distancia_nodos)
         if distribucion_variacion == VariacionNodos.uniforme.name:
             var = np.random.uniform(-variacion / 2, variacion / 2, len(arr)) + desplazamiento
@@ -648,6 +647,7 @@ class Electrodo:
             pos_z (float): Posición del electrodo en el eje z. En micrómetros.
             radio (float): Radio del electrodo tipo Circulo. En micrómetros.
             lista_coordenadas (list): Coordenadas en micrometros del electrodo tipo Poligono.
+            valor (float): Valor de la función constante para el cálculo de los pesos longitudinales.
 
         Raises:
             InputError: Si el tipo de electrodo ingresado no es correcto.
@@ -660,7 +660,7 @@ class Electrodo:
         self.wlong = []
         self.pesos = []
         self.grosor = grosor
-        self.zona_influencia = zona_influencia  #es la zona a izquierda o derecha que abarca el electrodo, no la zona completa
+        self.zona_influencia = zona_influencia
         self.valor = kwargs.get(&#39;valor&#39;, None)
         self.sfap = None
         self.cap = None
@@ -760,7 +760,7 @@ class Electrodo:
             matriz_nodos (list): Lista con la información de la ubicación de nodos de cada fibra.
         &#34;&#34;&#34;
         a = self.grosor / 2
-        d = self.zona_influencia
+        d = self.zona_influencia + self.grosor / 2
         v = self.valor
         if funcion == funcion_constante:
             wlong = np.array(
@@ -788,27 +788,27 @@ class Electrodo:
         ],
                               dtype=object)
 
-    def sfap_funcion(self, frec_muestreo, velocidad_fibras, tiempo_registro, estimulo, ubicacion_nodos, num_fibras):
+    def sfap_funcion(self, frec_muestreo, velocidad_fibras, tiempo_registro, impulso, ubicacion_nodos, num_fibras):
         &#34;&#34;&#34;Método que calcula los Potenciales de Acción de Fibra Unica para cada fibra que se encuentra en el Nervio.
 
         Args:
             frec_muestreo (float): Frecuencia de muestreo. En Hz.
             velocidad_fibras (float): Velocidad de conducción de una fibra. En m/s.
             tiempo_registro (float): Tiempo en el que se realiza el registro. En segundos.
-            estimulo (numpy.ndarray): Array con los estímulos por fibra. 
+            impulso (numpy.ndarray): Array con los impulsos por fibra. 
             ubicacion_nodos (numpy.ndarray): Array con la ubicación de los nodos en todas las fibras.
             num_fibras (int): Cantidad de fibras en el nervio.
         &#34;&#34;&#34;
         total_muestras = int(tiempo_registro * frec_muestreo)
         sfap_matriz = np.zeros((len(ubicacion_nodos), total_muestras))
         for i, posiciones in enumerate(ubicacion_nodos):
-            estimulo_por_nodo = array_to_multiarray(array=posiciones,
-                                                    estimulo=estimulo[i],
-                                                    fm=frec_muestreo,
-                                                    tiempo_registro=tiempo_registro,
-                                                    velocidad=velocidad_fibras[i],
-                                                    peso=self.pesos[i])
-            sfap = np.sum(estimulo_por_nodo, axis=0)
+            impulso_por_nodo = array_to_multiarray(array=posiciones,
+                                                   impulso=impulso[i],
+                                                   fm=frec_muestreo,
+                                                   tiempo_registro=tiempo_registro,
+                                                   velocidad=velocidad_fibras[i],
+                                                   peso=self.pesos[i])
+            sfap = np.sum(impulso_por_nodo, axis=0)
             sfap_matriz[i] = sfap
         self.sfap = sfap_matriz / num_fibras
 
@@ -818,73 +818,73 @@ class Electrodo:
         self.cap = np.sum(self.sfap, axis=0)
 
 
-class Estimulador:
-    &#34;&#34;&#34;Encargado de generar el impulso de entrada al Nervio.
+class Generador:
+    &#34;&#34;&#34;Encargado de generar el impulso de que viajará por el Nervio.
     &#34;&#34;&#34;
 
-    def __init__(self, frec_muestreo, tiempo_estimulo, num_fibras):
-        &#34;&#34;&#34;Método constructor de la clase Estimulador.
+    def __init__(self, frec_muestreo, tiempo_impulso, num_fibras):
+        &#34;&#34;&#34;Método constructor de la clase Generador.
 
         Args:
             frec_muestreo (float): Frecuencia de muestreo. En Hz.
-            tiempo_estimulo (float): Tiempo total que durará el registro. En segundos.
+            tiempo_impulso (float): Tiempo total que durará el registro. En segundos.
             num_fibras (int): Número de fibras del nervio.
         &#34;&#34;&#34;
-        self.cant_muestras = int(frec_muestreo * tiempo_estimulo)
+        self.cant_muestras = int(frec_muestreo * tiempo_impulso)
         self.frec = frec_muestreo
-        self.tiempo_estimulo = tiempo_estimulo
+        self.tiempo_impulso = tiempo_impulso
         self.num_fibras = num_fibras
-        self.estimulo = None
-        self.vector_tiempo = np.arange(1 / self.frec, self.tiempo_estimulo + 1 / self.frec, 1 / self.frec)
-        self.tipo_estimulo = None
+        self.impulso = None
+        self.vector_tiempo = np.arange(1 / self.frec, self.tiempo_impulso + 1 / self.frec, 1 / self.frec)
+        self.tipo_impulso = None
 
-    def crear_estimulo(self, tipo_estimulo, **kwargs):
-        &#34;&#34;&#34;Método para crear el estímulo que se usará con las fibras del nervio.
+    def crear_impulso(self, tipo_impulso, **kwargs):
+        &#34;&#34;&#34;Método para crear el impulso que se usará con las fibras del nervio.
 
         Args:
-            tipo_estimulo (str): Tipo de estímulo que se creará. Se detallan en el enum TipoEstimulo.
+            tipo_impulso (str): Tipo de impulso que se creará. Se detallan en el enum TipoImpulso.
             
         Keyword Args:
             duracion(float): Tiempo en segundos que durará la señal cuadrada.
-            tiempo_inicio (float): Momento en el que inicia el estímulo. En segundos.
+            tiempo_inicio (float): Momento en el que inicia el impulso. En segundos.
             lista_tiempo_inicio(list): Lista con los tiempos en segundos en los cuales se quiere tener un potencial de acción.
             frec_corte(float): Frecuencia de corte del filtro Butterworth. En Hz.
             orden_filtro(int): Orden del filtro pasa bajos.
-            ubicacion_archivo(str): Ubicación del archivo csv con la señal de estimulación.
-            array_estimulo(numpy.ndarray): Numpy array con la señal de estimulación.
+            ubicacion_archivo(str): Ubicación del archivo csv con el impulso nervioso.
+            array_impulso(numpy.ndarray): Numpy array con el impulso nervioso.
 
         Raises:
-            InputError: Se levanta cuando se ingresa un tipo de estímulo no válido.
+            InputError: Se levanta cuando se ingresa un tipo de impulso no válido.
         &#34;&#34;&#34;
-        self.tipo_estimulo = tipo_estimulo
-        if tipo_estimulo == TipoEstimulo.cuadrado.name:
-            self.estimulo_cuadrado(tiempo_inicio=kwargs.get(&#34;tiempo_inicio&#34;, 0),
-                                   duracion=kwargs.get(&#39;duracion&#39;, 0.0),
-                                   voltaje=kwargs.get(&#39;voltaje&#39;, 1))
-        elif tipo_estimulo == TipoEstimulo.potencial_de_accion.name:
+        self.tipo_impulso = tipo_impulso
+        if tipo_impulso == TipoImpulso.cuadrado.name:
+            self.impulso_cuadrado(tiempo_inicio=kwargs.get(&#34;tiempo_inicio&#34;, 0),
+                                  duracion=kwargs.get(&#39;duracion&#39;, 0.0),
+                                  voltaje=kwargs.get(&#39;voltaje&#39;, 1))
+        elif tipo_impulso == TipoImpulso.potencial_de_accion.name:
             self.potencial_de_accion(tiempo_inicio=kwargs.get(&#34;tiempo_inicio&#34;, 0),
                                      frec_corte=kwargs.get(&#39;frec_corte&#39;, 1000),
                                      orden_filtro=kwargs.get(&#39;orden_filtro&#39;, 2),
                                      lista_inicio=kwargs.get(&#34;lista_inicio&#34;, None))
-        elif tipo_estimulo == TipoEstimulo.manual.name:
-            self.estimulo_manual(array_estimulo=kwargs.get(&#39;array_estimulo&#39;, None),
-                                 tiempo_inicio=kwargs.get(&#34;tiempo_inicio&#34;, 0))
-        elif tipo_estimulo == TipoEstimulo.desde_archivo.name:
-            self.estimulo_desde_archivo(tiempo_inicio=kwargs.get(&#34;tiempo_inicio&#34;, 0),
-                                        ubicacion_archivo=kwargs.get(&#39;ubicacion_archivo&#39;, None))
+        elif tipo_impulso == TipoImpulso.manual.name:
+            self.impulso_manual(array_impulso=kwargs.get(&#39;array_impulso&#39;, None),
+                                tiempo_inicio=kwargs.get(&#34;tiempo_inicio&#34;, 0))
+        elif tipo_impulso == TipoImpulso.desde_archivo.name:
+            self.impulso_desde_archivo(tiempo_inicio=kwargs.get(&#34;tiempo_inicio&#34;, 0),
+                                       ubicacion_archivo=kwargs.get(&#39;ubicacion_archivo&#39;, None))
         else:
             raise InputError(&#34;El tipo de impulso ingresado no es correcto.&#34;)
 
-    def estimulo_cuadrado(self, tiempo_inicio, duracion, voltaje):
-        &#34;&#34;&#34;Método para crear un estímulo cuadrado o spike.
+    def impulso_cuadrado(self, tiempo_inicio, duracion, voltaje):
+        &#34;&#34;&#34;Método para crear un impulso cuadrado o spike.
 
         Args:
-            tiempo_inicio (float): Tiempo en el que se desea iniciar el estímulo. En segundos.
-            duracion (float): Tiempo que durará el estímulo. Si es cero, se tendrá una spike. En segundos.
+            tiempo_inicio (float): Tiempo en el que se desea iniciar el impulso. En segundos.
+            duracion (float): Tiempo que durará el impulso. Si es cero, se tendrá una spike. En segundos.
         &#34;&#34;&#34;
         inicio = int(tiempo_inicio * self.frec)
         duracion = duracion * self.frec
-        self.estimulo = np.array([
+        self.impulso = np.array([
             np.array([voltaje if (j &gt;= inicio and j &lt;= (inicio + duracion)) else 0
                       for j in range(self.cant_muestras)])
             for i in range(self.num_fibras)
@@ -894,7 +894,7 @@ class Estimulador:
         &#34;&#34;&#34;Método para crear un potencial de acción.
 
         Args:
-            tiempo_inicio (float): Tiempo en el que se desea iniciar el estímulo. En segundos.
+            tiempo_inicio (float): Tiempo en el que se desea iniciar el impulso. En segundos.
             lista_tiempo_inicio (list): Lista con los tiempos (en segundos) en donde comenzará la señal.
             frec_corte (float): Frecuencia de corte del filtro pasabajos Butterworth. En Hz.
             orden_filtro (int): Orden del filtro Butterworth.
@@ -914,51 +914,50 @@ class Estimulador:
         Vm = signal.lfilter(b, a, x)
         Vm = Vm / np.max(Vm)  #Vm normalizado
 
-        self.estimulo = np.repeat([Vm], self.num_fibras, axis=0)
+        self.impulso = np.repeat([Vm], self.num_fibras, axis=0)
 
-    def estimulo_manual(self, array_estimulo, tiempo_inicio):
-        &#34;&#34;&#34;Método para crear un estímulo de forma manual, a partir de un array con la señal.
+    def impulso_manual(self, array_impulso, tiempo_inicio):
+        &#34;&#34;&#34;Método para crear un impulso de forma manual, a partir de un array con la señal.
 
         Args:
-            array_estimulo (numpy.ndarray): Señal con la cual se estimularán las fibras del nervio.
-            tiempo_inicio (float): Tiempo en el que inicia el estímulo. En segundos.
+            array_impulso (numpy.ndarray): Array con la señal que se propagará por las fibras del nervio.
+            tiempo_inicio (float): Tiempo en el que inicia el impulso. En segundos.
         &#34;&#34;&#34;
-        if len(array_estimulo) != self.num_fibras:
-            raise InputError(
-                &#34;EL array con la señal del estímulo debe tener tantas filas como fibras haya en el nervio.&#34;)
-        estim = np.zeros((len(array_estimulo), self.cant_muestras))
+        if len(array_impulso) != self.num_fibras:
+            raise InputError(&#34;EL array con la señal del impulso debe tener tantas filas como fibras haya en el nervio.&#34;)
+        impulse = np.zeros((len(array_impulso), self.cant_muestras))
         inicio = int(tiempo_inicio * self.frec)
         flag = False
 
-        if not np.isnan(sum(array_estimulo)).any() and np.issubdtype(array_estimulo.dtype, np.number):
-            for i, est in enumerate(array_estimulo):
-                muestras_estimulo = len(est)
-                if muestras_estimulo &gt; self.cant_muestras - inicio:
-                    muestras_estimulo = self.cant_muestras - inicio
+        if not np.isnan(sum(array_impulso)).any() and np.issubdtype(array_impulso.dtype, np.number):
+            for i, est in enumerate(array_impulso):
+                muestras_impulso = len(est)
+                if muestras_impulso &gt; self.cant_muestras - inicio:
+                    muestras_impulso = self.cant_muestras - inicio
                     flag = True
-                estim[i][inicio:inicio + muestras_estimulo] = array_estimulo[i][:muestras_estimulo]
+                impulse[i][inicio:inicio + muestras_impulso] = array_impulso[i][:muestras_impulso]
         if flag is True:
-            print(&#34;Se recortó por lo menos una señal de estímulo debido a su tamaño.&#34;)
+            print(&#34;Se recortó por lo menos una señal de impulso debido a su tamaño.&#34;)
 
-        estim_normalizado = estim / np.amax(estim, axis=1, keepdims=True)
-        self.estimulo = estim_normalizado
+        impulse_normalizado = impulse / np.amax(impulse, axis=1, keepdims=True)
+        self.impulso = impulse_normalizado
 
-    def estimulo_desde_archivo(self, ubicacion_archivo, tiempo_inicio):
-        &#34;&#34;&#34;Método para cargar un estímulo desde un archivo csv.
+    def impulso_desde_archivo(self, ubicacion_archivo, tiempo_inicio):
+        &#34;&#34;&#34;Método para cargar un impulso desde un archivo csv.
 
         Args:
             ubicacion_archivo (str): Ubicación del archivo csv.
-            tiempo_inicio (float): Tiempo en el que se iniciará el estímulo. En segundos.
+            tiempo_inicio (float): Tiempo en el que se iniciará el impulso. En segundos.
 
         Raises:
             LoadingError: Error que se levanta cuando no se puede leer el archivo.
         &#34;&#34;&#34;
         try:
-            estimulo = np.genfromtxt(ubicacion_archivo, delimiter=&#39;,&#39;)
+            impulso = np.genfromtxt(ubicacion_archivo, delimiter=&#39;,&#39;)
         except Exception as e:
             raise LoadingError(&#39;Fallo en la carga del archivo.&#39;) from e
 
-        self.estimulo_manual(array_estimulo=estimulo, tiempo_inicio=tiempo_inicio)
+        self.impulso_manual(array_impulso=impulso, tiempo_inicio=tiempo_inicio)
 
 
 class Entorno:
@@ -976,8 +975,8 @@ class Entorno:
         self.tiempo_registro = tiempo_registro
         self.nervio = None
         self.electrodos = []
-        self.estimulador = None
-        self.estimulo = None
+        self.generador = None
+        self.impulso = None
         self.frec_muestreo = None
         self.cap_dif = None
         self.capdif_pos1 = None
@@ -1058,6 +1057,7 @@ class Entorno:
             pos_z (float): Posición del electrodo en el eje z. En micrómetros.
             radio (float): Radio del electrodo tipo Circulo. En micrómetros.
             lista_coordenadas (list): Coordenadas en micrometros del electrodo tipo Poligono.
+            valor (float): Valor de la función constante para el cálculo de los pesos longitudinales.
 
         Raises:
             ObjectCreationError: Se levanta el error cuando se quiere crear un Electrodo antes de crear un Nervio.
@@ -1070,33 +1070,33 @@ class Entorno:
         nuevo_electrodo.calcular_pesos(nervio=self.nervio, funcion=funcion, matriz_nodos=self.nervio.informacion_nodos)
         self.electrodos.append(nuevo_electrodo)
 
-    def crear_estimulo(self, tipo_estimulo, frec_muestreo, tiempo_estimulo, **kwargs):
-        &#34;&#34;&#34;Método que permite crear el estímulo con el que se excitará el nervio.
+    def crear_impulso(self, tipo_impulso, frec_muestreo, tiempo_impulso, **kwargs):
+        &#34;&#34;&#34;Método que permite crear el impulso con el que se excitará el nervio.
 
         Args:
-            tipo_estimulo (str): Tipo de estímulo que se creará. Se detallan en el enum TipoEstimulo. En segundos.
+            tipo_impulso (str): Tipo de impulso que se creará. Se detallan en el enum TipoImpulso. En segundos.
             frec_muestreo (float): Frecuencia de muestreo de la señal. En Hz.
-            tiempo_estimulo (float): Tiempo total en el que se realizará la medición. En segundos.
+            tiempo_impulso (float): Tiempo total en el que se realizará la medición. En segundos.
         
         Keyword Args:
             duracion(float): Tiempo en segundos que durará la señal cuadrada. En segundos.
             frec_corte(float): Frecuencia de corte del filtro Butterworth. En Hz.
             orden_filtro(int): Orden del filtro pasa bajos.
-            ubicacion_archivo(str): Ubicación del archivo csv con la señal de estimulación.
-            array_estimulo(numpy.ndarray): Numpy array con la señal de estimulación para cada fibra.
-            tiempo_inicio (float): Momento en el que inicia el estímulo. En segundos.
+            ubicacion_archivo(str): Ubicación del archivo csv con el impulso que viajará por el nervio.
+            array_impulso (numpy.ndarray): Numpy array con la señal del para cada fibra.
+            tiempo_inicio (float): Momento en el que inicia el impulso. En segundos.
             lista_inicio (list): Lista con los tiempos de inicio para el tren de señales. En segundos.
-            voltaje (float): Voltaje del estímulo. En voltios. Por defecto es 1[V].
+            voltaje (float): Voltaje del impulso cuadrado. En voltios. Por defecto es 1.
         &#34;&#34;&#34;
-        self.estimulador = Estimulador(frec_muestreo=frec_muestreo,
-                                       tiempo_estimulo=tiempo_estimulo,
-                                       num_fibras=self.nervio.cantidad_fibras)
-        self.estimulador.crear_estimulo(tipo_estimulo=tipo_estimulo, **kwargs)
-        self.estimulo = self.estimulador.estimulo
+        self.generador = Generador(frec_muestreo=frec_muestreo,
+                                   tiempo_impulso=tiempo_impulso,
+                                   num_fibras=self.nervio.cantidad_fibras)
+        self.generador.crear_impulso(tipo_impulso=tipo_impulso, **kwargs)
+        self.impulso = self.generador.impulso
         self.frec_muestreo = frec_muestreo
 
         if self.tiempo_registro is None:
-            self.tiempo_registro = tiempo_estimulo * 1.5
+            self.tiempo_registro = tiempo_impulso * 1.5
 
     def cap(self):
         &#34;&#34;&#34;Método con el cual se obtiene los Potenciales de Acción Compuestos por cada electrodo que se encuentra en el entorno.
@@ -1105,7 +1105,7 @@ class Entorno:
             electrodo.sfap_funcion(frec_muestreo=self.frec_muestreo,
                                    velocidad_fibras=self.nervio.informacion_fibras()[:, 3],
                                    tiempo_registro=self.tiempo_registro,
-                                   estimulo=self.estimulo,
+                                   impulso=self.impulso,
                                    ubicacion_nodos=self.nervio.informacion_nodos,
                                    num_fibras=self.nervio.cantidad_fibras)
             electrodo.cap_funcion()
@@ -1141,7 +1141,7 @@ class Entorno:
         del data
 
     def informe_experimento(self, guardar=False, nombre_archivo=&#34;informe.txt&#34;):
-        &#34;&#34;&#34;Método que brinda un informe rápido sobre variables del nervio, electrodos y estimulador. Brinda la posibilidad de guardar la información en un archivo txt.
+        &#34;&#34;&#34;Método que brinda un informe rápido sobre variables del nervio, electrodos y generador. Brinda la posibilidad de guardar la información en un archivo txt.
 
         Args:
             guardar (bool, optional): Variable que indica si se quiere guardar la información en un archivo txt. Por defecto es False.
@@ -1170,10 +1170,10 @@ Datos de los electrodos:
         * Grosor electrodos: {grosor}
         * Zonas de influencia: {zonas}
         
-Datos del estimulador:
-        * Tipo de estimulo: {self.estimulador.tipo_estimulo}
+Datos del generador:
+        * Tipo de impulso: {self.generador.tipo_impulso}
         * Frecuencia de muestreo: {self.frec_muestreo} Hz
-        * Tiempo de estimulo: {self.estimulador.tiempo_estimulo} segundos
+        * Tiempo de impulso: {self.generador.tiempo_impulso} segundos
         * Tiempo de registro : {self.tiempo_registro} segundos
         &#39;&#39;&#39;
         print(texto)
@@ -1182,7 +1182,7 @@ Datos del estimulador:
                 file.write(texto)
 
     def archivo_matlab(self, nombre=&#34;info_matlab.mat&#34;):
-        &#34;&#34;&#34;Devuelve un archivo .mat para ser usado en Matlab. Incluye información sobre el CAP diferencial, los CAPs con los cuales se calculó el CAP diferencial, el estímulo, y los vectores de tiempo del estímulo y CAPs.
+        &#34;&#34;&#34;Devuelve un archivo .mat para ser usado en Matlab. Incluye información sobre el CAP diferencial, los CAPs con los cuales se calculó el CAP diferencial, el impulso, y los vectores de tiempo del impulso y CAPs.
 
         Args:
             nombre (str): Nombre del archivo .mat
@@ -1196,9 +1196,9 @@ Datos del estimulador:
             &#39;CAP2&#39;:
                 self.electrodos[self.capdif_pos2].cap,
             &#39;Vm&#39;:
-                self.estimulador.estimulo[0],
+                self.generador.impulso[0],
             &#39;t_vm&#39;:
-                self.estimulador.vector_tiempo,
+                self.generador.vector_tiempo,
             &#39;t_cap&#39;:
                 np.arange(1 / self.frec_muestreo, 1 / self.frec_muestreo + self.tiempo_registro, 1 / self.frec_muestreo)
         }
@@ -1266,7 +1266,7 @@ Datos del estimulador:
         plt.xlabel(xlabel)
         plt.ylabel(ylabel)
         plt.title(titulo)
-        plt.legend(fontsize=&#39;xx-small&#39;)
+        plt.legend(fontsize=&#39;small&#39;)
         plt.axis(&#39;equal&#39;)
         plt.show()
 
@@ -1274,7 +1274,7 @@ Datos del estimulador:
             fig.savefig(nombre_figura, dpi=300, format=&#34;png&#34;)
 
     def graficas(self, titulo=None, guardar=False, nombre_figura=&#34;figura.png&#34;):
-        &#34;&#34;&#34;Método que permite graficar el estímulo, CAP de cada electrodo que se tenga agregado y CAP diferencial de 2 de los electrodos con los cuales se lo obtuvo.
+        &#34;&#34;&#34;Método que permite graficar el impulso, CAP de cada electrodo que se tenga agregado y CAP diferencial de 2 de los electrodos con los cuales se lo obtuvo.
 
         Args:
             titulo (str, optional): Título del gráfico. Por defecto no hay.
@@ -1297,8 +1297,8 @@ Datos del estimulador:
                  label=f&#34;CAP diferencial electrodos {self.capdif_pos1}-{self.capdif_pos2}&#34;)
 
         #Vm
-        plt.plot(self.estimulador.vector_tiempo * 1000,
-                 self.estimulador.estimulo[0],
+        plt.plot(self.generador.vector_tiempo * 1000,
+                 self.generador.impulso[0],
                  label=&#34;Vm&#34;,
                  color=&#39;gray&#39;,
                  linewidth=0.7)
@@ -1321,15 +1321,15 @@ Datos del estimulador:
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="simulacion.array_to_multiarray"><code class="name flex">
-<span>def <span class="ident">array_to_multiarray</span></span>(<span>array, estimulo, fm, tiempo_registro, velocidad, peso)</span>
+<span>def <span class="ident">array_to_multiarray</span></span>(<span>array, impulso, fm, tiempo_registro, velocidad, peso)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Función que, dado un array con posiciones, crea un array de arrays, con estímulos desplazados para cada posición.</p>
+<div class="desc"><p>Función que, dado un array con posiciones, crea un array de arrays, con impulsos desplazados para cada posición.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>array</code></strong> :&ensp;<code>numpy.ndarray</code></dt>
-<dd>Array que contiene las posiciones con las cuales se hará el desplazamiento del estímulo.</dd>
-<dt><strong><code>estimulo</code></strong> :&ensp;<code>numpy.ndarray</code></dt>
+<dd>Array que contiene las posiciones con las cuales se hará el desplazamiento del impulso.</dd>
+<dt><strong><code>impulso</code></strong> :&ensp;<code>numpy.ndarray</code></dt>
 <dd>Señal que es desplazada.</dd>
 <dt><strong><code>fm</code></strong> :&ensp;<code>float</code></dt>
 <dd>Frecuencia de muestreo. En Hz.</dd>
@@ -1343,35 +1343,35 @@ Datos del estimulador:
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><code>numpy.ndarray</code></dt>
-<dd>Devuelve el array de arrays con los estímulos desplazados.</dd>
+<dd>Devuelve el array de arrays con los impulsos desplazados.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def array_to_multiarray(array, estimulo, fm, tiempo_registro, velocidad, peso):
-    &#34;&#34;&#34;Función que, dado un array con posiciones, crea un array de arrays, con estímulos desplazados para cada posición.
+<pre><code class="python">def array_to_multiarray(array, impulso, fm, tiempo_registro, velocidad, peso):
+    &#34;&#34;&#34;Función que, dado un array con posiciones, crea un array de arrays, con impulsos desplazados para cada posición.
 
     Args:
-        array (numpy.ndarray): Array que contiene las posiciones con las cuales se hará el desplazamiento del estímulo.
-        estimulo (numpy.ndarray): Señal que es desplazada.
+        array (numpy.ndarray): Array que contiene las posiciones con las cuales se hará el desplazamiento del impulso.
+        impulso (numpy.ndarray): Señal que es desplazada.
         fm (float): Frecuencia de muestreo. En Hz.
         tiempo_registro (float): Tiempo total en el que se hará el registro. En segundos.
         velocidad (float): Velocidad a la cual se desplaza la señal. En m/s.
         peso (float): Factor por el cual se multiplica la señal. 
 
     Returns:
-        numpy.ndarray: Devuelve el array de arrays con los estímulos desplazados.
+        numpy.ndarray: Devuelve el array de arrays con los impulsos desplazados.
     &#34;&#34;&#34;
     total_muestras = int(tiempo_registro * fm)
     multiarray = np.zeros((len(array), total_muestras))
     for i, posicion in enumerate(array):
-        vector = insertar_estimulo(estimulo=estimulo,
-                                   posicion=posicion,
-                                   fm=fm,
-                                   tiempo_registro=tiempo_registro,
-                                   velocidad=velocidad,
-                                   peso=peso[i])
+        vector = insertar_impulso(impulso=impulso,
+                                  posicion=posicion,
+                                  fm=fm,
+                                  tiempo_registro=tiempo_registro,
+                                  velocidad=velocidad,
+                                  peso=peso[i])
         if vector is not None:
             multiarray[i] = vector
     return multiarray</code></pre>
@@ -1603,17 +1603,17 @@ Datos del estimulador:
     return 0</code></pre>
 </details>
 </dd>
-<dt id="simulacion.insertar_estimulo"><code class="name flex">
-<span>def <span class="ident">insertar_estimulo</span></span>(<span>estimulo, posicion, fm, tiempo_registro, velocidad, peso)</span>
+<dt id="simulacion.insertar_impulso"><code class="name flex">
+<span>def <span class="ident">insertar_impulso</span></span>(<span>impulso, posicion, fm, tiempo_registro, velocidad, peso)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Función que desplaza un numpy array dada una posición de inicio.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>estimulo</code></strong> :&ensp;<code>numpy.ndarray</code></dt>
+<dt><strong><code>impulso</code></strong> :&ensp;<code>numpy.ndarray</code></dt>
 <dd>Señal que es desplazada.</dd>
 <dt><strong><code>posicion</code></strong> :&ensp;<code>float</code></dt>
-<dd>Posición hasta la que se desplaza el inicio del estímulo. En micrometros.</dd>
+<dd>Posición hasta la que se desplaza el inicio del impulso. En micrometros.</dd>
 <dt><strong><code>fm</code></strong> :&ensp;<code>float</code></dt>
 <dd>Frecuencia de muestreo de la señal. En Hz.</dd>
 <dt><strong><code>tiempo_registro</code></strong> :&ensp;<code>float</code></dt>
@@ -1626,35 +1626,35 @@ Datos del estimulador:
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><code>numpy.ndarray</code></dt>
-<dd>Devuelve el estímulo desplazado, en el tiempo de registro.</dd>
+<dd>Devuelve el impulso desplazado, en el tiempo de registro.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def insertar_estimulo(estimulo, posicion, fm, tiempo_registro, velocidad, peso):
+<pre><code class="python">def insertar_impulso(impulso, posicion, fm, tiempo_registro, velocidad, peso):
     &#34;&#34;&#34;Función que desplaza un numpy array dada una posición de inicio.
 
     Args:
-        estimulo (numpy.ndarray): Señal que es desplazada.
-        posicion (float): Posición hasta la que se desplaza el inicio del estímulo. En micrometros.
+        impulso (numpy.ndarray): Señal que es desplazada.
+        posicion (float): Posición hasta la que se desplaza el inicio del impulso. En micrometros.
         fm (float): Frecuencia de muestreo de la señal. En Hz.
         tiempo_registro (float): Tiempo total en el que se hará el registro. En segundos.
         velocidad (float): Velocidad a la cual se desplaza la señal. En m/s.
         peso (float): Factor por el cual se multiplica la señal.
 
     Returns:
-        numpy.ndarray: Devuelve el estímulo desplazado, en el tiempo de registro.
+        numpy.ndarray: Devuelve el impulso desplazado, en el tiempo de registro.
     &#34;&#34;&#34;
     total_muestras = int(tiempo_registro * fm)
-    muestras_estimulo = len(estimulo)
+    muestras_impulso = len(impulso)
     vector = np.zeros(total_muestras)
     inicio = int((posicion * fm) / (velocidad * 1000000))  #retardo
 
     if inicio &lt; total_muestras and peso != 0:
-        if muestras_estimulo &gt; (total_muestras - inicio):
-            muestras_estimulo = total_muestras - inicio
-        vector[inicio:inicio + muestras_estimulo] = estimulo[0:muestras_estimulo] * peso
+        if muestras_impulso &gt; (total_muestras - inicio):
+            muestras_impulso = total_muestras - inicio
+        vector[inicio:inicio + muestras_impulso] = impulso[0:muestras_impulso] * peso
         return vector
 
     return None</code></pre>
@@ -1735,11 +1735,13 @@ Datos del estimulador:
 <dt><strong><code>pos_y</code></strong> :&ensp;<code>float</code></dt>
 <dd>Posición del electrodo en el eje y. En micrómetros.</dd>
 <dt><strong><code>pos_z</code></strong> :&ensp;<code>float</code></dt>
-<dd>Posición del electrodo en el eje z. En micrómetros.</dd>
+<dd>Posición del electrodo en el eje z. En micrómetros. </dd>
 <dt><strong><code>radio</code></strong> :&ensp;<code>float</code></dt>
-<dd>Radio del electrodo tipo Circulo. En micrómetros.</dd>
+<dd>Radio del electrodo tipo Circulo. En micrómetros. </dd>
 <dt><strong><code>lista_coordenadas</code></strong> :&ensp;<code>list</code></dt>
-<dd>Coordenadas en micrómetros del electrodo tipo Poligono.</dd>
+<dd>Coordenadas en micrometros del electrodo tipo Poligono. </dd>
+<dt><strong><code>valor</code></strong> :&ensp;<code>float</code></dt>
+<dd>Valor de la función constante para el cálculo de los pesos longitudinales.</dd>
 </dl>
 
 <h2 id="raises">Raises</h2>
@@ -1771,6 +1773,7 @@ Datos del estimulador:
             pos_z (float): Posición del electrodo en el eje z. En micrómetros.
             radio (float): Radio del electrodo tipo Circulo. En micrómetros.
             lista_coordenadas (list): Coordenadas en micrometros del electrodo tipo Poligono.
+            valor (float): Valor de la función constante para el cálculo de los pesos longitudinales.
 
         Raises:
             InputError: Si el tipo de electrodo ingresado no es correcto.
@@ -1783,7 +1786,7 @@ Datos del estimulador:
         self.wlong = []
         self.pesos = []
         self.grosor = grosor
-        self.zona_influencia = zona_influencia  #es la zona a izquierda o derecha que abarca el electrodo, no la zona completa
+        self.zona_influencia = zona_influencia
         self.valor = kwargs.get(&#39;valor&#39;, None)
         self.sfap = None
         self.cap = None
@@ -1883,7 +1886,7 @@ Datos del estimulador:
             matriz_nodos (list): Lista con la información de la ubicación de nodos de cada fibra.
         &#34;&#34;&#34;
         a = self.grosor / 2
-        d = self.zona_influencia
+        d = self.zona_influencia + self.grosor / 2
         v = self.valor
         if funcion == funcion_constante:
             wlong = np.array(
@@ -1911,27 +1914,27 @@ Datos del estimulador:
         ],
                               dtype=object)
 
-    def sfap_funcion(self, frec_muestreo, velocidad_fibras, tiempo_registro, estimulo, ubicacion_nodos, num_fibras):
+    def sfap_funcion(self, frec_muestreo, velocidad_fibras, tiempo_registro, impulso, ubicacion_nodos, num_fibras):
         &#34;&#34;&#34;Método que calcula los Potenciales de Acción de Fibra Unica para cada fibra que se encuentra en el Nervio.
 
         Args:
             frec_muestreo (float): Frecuencia de muestreo. En Hz.
             velocidad_fibras (float): Velocidad de conducción de una fibra. En m/s.
             tiempo_registro (float): Tiempo en el que se realiza el registro. En segundos.
-            estimulo (numpy.ndarray): Array con los estímulos por fibra. 
+            impulso (numpy.ndarray): Array con los impulsos por fibra. 
             ubicacion_nodos (numpy.ndarray): Array con la ubicación de los nodos en todas las fibras.
             num_fibras (int): Cantidad de fibras en el nervio.
         &#34;&#34;&#34;
         total_muestras = int(tiempo_registro * frec_muestreo)
         sfap_matriz = np.zeros((len(ubicacion_nodos), total_muestras))
         for i, posiciones in enumerate(ubicacion_nodos):
-            estimulo_por_nodo = array_to_multiarray(array=posiciones,
-                                                    estimulo=estimulo[i],
-                                                    fm=frec_muestreo,
-                                                    tiempo_registro=tiempo_registro,
-                                                    velocidad=velocidad_fibras[i],
-                                                    peso=self.pesos[i])
-            sfap = np.sum(estimulo_por_nodo, axis=0)
+            impulso_por_nodo = array_to_multiarray(array=posiciones,
+                                                   impulso=impulso[i],
+                                                   fm=frec_muestreo,
+                                                   tiempo_registro=tiempo_registro,
+                                                   velocidad=velocidad_fibras[i],
+                                                   peso=self.pesos[i])
+            sfap = np.sum(impulso_por_nodo, axis=0)
             sfap_matriz[i] = sfap
         self.sfap = sfap_matriz / num_fibras
 
@@ -2035,7 +2038,7 @@ Datos del estimulador:
         matriz_nodos (list): Lista con la información de la ubicación de nodos de cada fibra.
     &#34;&#34;&#34;
     a = self.grosor / 2
-    d = self.zona_influencia
+    d = self.zona_influencia + self.grosor / 2
     v = self.valor
     if funcion == funcion_constante:
         wlong = np.array(
@@ -2157,7 +2160,7 @@ Datos del estimulador:
 </details>
 </dd>
 <dt id="simulacion.Electrodo.sfap_funcion"><code class="name flex">
-<span>def <span class="ident">sfap_funcion</span></span>(<span>self, frec_muestreo, velocidad_fibras, tiempo_registro, estimulo, ubicacion_nodos, num_fibras)</span>
+<span>def <span class="ident">sfap_funcion</span></span>(<span>self, frec_muestreo, velocidad_fibras, tiempo_registro, impulso, ubicacion_nodos, num_fibras)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Método que calcula los Potenciales de Acción de Fibra Unica para cada fibra que se encuentra en el Nervio.</p>
@@ -2169,8 +2172,8 @@ Datos del estimulador:
 <dd>Velocidad de conducción de una fibra. En m/s.</dd>
 <dt><strong><code>tiempo_registro</code></strong> :&ensp;<code>float</code></dt>
 <dd>Tiempo en el que se realiza el registro. En segundos.</dd>
-<dt><strong><code>estimulo</code></strong> :&ensp;<code>numpy.ndarray</code></dt>
-<dd>Array con los estímulos por fibra. </dd>
+<dt><strong><code>impulso</code></strong> :&ensp;<code>numpy.ndarray</code></dt>
+<dd>Array con los impulsos por fibra. </dd>
 <dt><strong><code>ubicacion_nodos</code></strong> :&ensp;<code>numpy.ndarray</code></dt>
 <dd>Array con la ubicación de los nodos en todas las fibras.</dd>
 <dt><strong><code>num_fibras</code></strong> :&ensp;<code>int</code></dt>
@@ -2180,27 +2183,27 @@ Datos del estimulador:
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def sfap_funcion(self, frec_muestreo, velocidad_fibras, tiempo_registro, estimulo, ubicacion_nodos, num_fibras):
+<pre><code class="python">def sfap_funcion(self, frec_muestreo, velocidad_fibras, tiempo_registro, impulso, ubicacion_nodos, num_fibras):
     &#34;&#34;&#34;Método que calcula los Potenciales de Acción de Fibra Unica para cada fibra que se encuentra en el Nervio.
 
     Args:
         frec_muestreo (float): Frecuencia de muestreo. En Hz.
         velocidad_fibras (float): Velocidad de conducción de una fibra. En m/s.
         tiempo_registro (float): Tiempo en el que se realiza el registro. En segundos.
-        estimulo (numpy.ndarray): Array con los estímulos por fibra. 
+        impulso (numpy.ndarray): Array con los impulsos por fibra. 
         ubicacion_nodos (numpy.ndarray): Array con la ubicación de los nodos en todas las fibras.
         num_fibras (int): Cantidad de fibras en el nervio.
     &#34;&#34;&#34;
     total_muestras = int(tiempo_registro * frec_muestreo)
     sfap_matriz = np.zeros((len(ubicacion_nodos), total_muestras))
     for i, posiciones in enumerate(ubicacion_nodos):
-        estimulo_por_nodo = array_to_multiarray(array=posiciones,
-                                                estimulo=estimulo[i],
-                                                fm=frec_muestreo,
-                                                tiempo_registro=tiempo_registro,
-                                                velocidad=velocidad_fibras[i],
-                                                peso=self.pesos[i])
-        sfap = np.sum(estimulo_por_nodo, axis=0)
+        impulso_por_nodo = array_to_multiarray(array=posiciones,
+                                               impulso=impulso[i],
+                                               fm=frec_muestreo,
+                                               tiempo_registro=tiempo_registro,
+                                               velocidad=velocidad_fibras[i],
+                                               peso=self.pesos[i])
+        sfap = np.sum(impulso_por_nodo, axis=0)
         sfap_matriz[i] = sfap
     self.sfap = sfap_matriz / num_fibras</code></pre>
 </details>
@@ -2240,8 +2243,8 @@ Datos del estimulador:
         self.tiempo_registro = tiempo_registro
         self.nervio = None
         self.electrodos = []
-        self.estimulador = None
-        self.estimulo = None
+        self.generador = None
+        self.impulso = None
         self.frec_muestreo = None
         self.cap_dif = None
         self.capdif_pos1 = None
@@ -2322,6 +2325,7 @@ Datos del estimulador:
             pos_z (float): Posición del electrodo en el eje z. En micrómetros.
             radio (float): Radio del electrodo tipo Circulo. En micrómetros.
             lista_coordenadas (list): Coordenadas en micrometros del electrodo tipo Poligono.
+            valor (float): Valor de la función constante para el cálculo de los pesos longitudinales.
 
         Raises:
             ObjectCreationError: Se levanta el error cuando se quiere crear un Electrodo antes de crear un Nervio.
@@ -2334,33 +2338,33 @@ Datos del estimulador:
         nuevo_electrodo.calcular_pesos(nervio=self.nervio, funcion=funcion, matriz_nodos=self.nervio.informacion_nodos)
         self.electrodos.append(nuevo_electrodo)
 
-    def crear_estimulo(self, tipo_estimulo, frec_muestreo, tiempo_estimulo, **kwargs):
-        &#34;&#34;&#34;Método que permite crear el estímulo con el que se excitará el nervio.
+    def crear_impulso(self, tipo_impulso, frec_muestreo, tiempo_impulso, **kwargs):
+        &#34;&#34;&#34;Método que permite crear el impulso con el que se excitará el nervio.
 
         Args:
-            tipo_estimulo (str): Tipo de estímulo que se creará. Se detallan en el enum TipoEstimulo. En segundos.
+            tipo_impulso (str): Tipo de impulso que se creará. Se detallan en el enum TipoImpulso. En segundos.
             frec_muestreo (float): Frecuencia de muestreo de la señal. En Hz.
-            tiempo_estimulo (float): Tiempo total en el que se realizará la medición. En segundos.
+            tiempo_impulso (float): Tiempo total en el que se realizará la medición. En segundos.
         
         Keyword Args:
             duracion(float): Tiempo en segundos que durará la señal cuadrada. En segundos.
             frec_corte(float): Frecuencia de corte del filtro Butterworth. En Hz.
             orden_filtro(int): Orden del filtro pasa bajos.
-            ubicacion_archivo(str): Ubicación del archivo csv con la señal de estimulación.
-            array_estimulo(numpy.ndarray): Numpy array con la señal de estimulación para cada fibra.
-            tiempo_inicio (float): Momento en el que inicia el estímulo. En segundos.
+            ubicacion_archivo(str): Ubicación del archivo csv con el impulso que viajará por el nervio.
+            array_impulso (numpy.ndarray): Numpy array con la señal del para cada fibra.
+            tiempo_inicio (float): Momento en el que inicia el impulso. En segundos.
             lista_inicio (list): Lista con los tiempos de inicio para el tren de señales. En segundos.
-            voltaje (float): Voltaje del estímulo. En voltios. Por defecto es 1[V].
+            voltaje (float): Voltaje del impulso cuadrado. En voltios. Por defecto es 1.
         &#34;&#34;&#34;
-        self.estimulador = Estimulador(frec_muestreo=frec_muestreo,
-                                       tiempo_estimulo=tiempo_estimulo,
-                                       num_fibras=self.nervio.cantidad_fibras)
-        self.estimulador.crear_estimulo(tipo_estimulo=tipo_estimulo, **kwargs)
-        self.estimulo = self.estimulador.estimulo
+        self.generador = Generador(frec_muestreo=frec_muestreo,
+                                   tiempo_impulso=tiempo_impulso,
+                                   num_fibras=self.nervio.cantidad_fibras)
+        self.generador.crear_impulso(tipo_impulso=tipo_impulso, **kwargs)
+        self.impulso = self.generador.impulso
         self.frec_muestreo = frec_muestreo
 
         if self.tiempo_registro is None:
-            self.tiempo_registro = tiempo_estimulo * 1.5
+            self.tiempo_registro = tiempo_impulso * 1.5
 
     def cap(self):
         &#34;&#34;&#34;Método con el cual se obtiene los Potenciales de Acción Compuestos por cada electrodo que se encuentra en el entorno.
@@ -2369,7 +2373,7 @@ Datos del estimulador:
             electrodo.sfap_funcion(frec_muestreo=self.frec_muestreo,
                                    velocidad_fibras=self.nervio.informacion_fibras()[:, 3],
                                    tiempo_registro=self.tiempo_registro,
-                                   estimulo=self.estimulo,
+                                   impulso=self.impulso,
                                    ubicacion_nodos=self.nervio.informacion_nodos,
                                    num_fibras=self.nervio.cantidad_fibras)
             electrodo.cap_funcion()
@@ -2405,7 +2409,7 @@ Datos del estimulador:
         del data
 
     def informe_experimento(self, guardar=False, nombre_archivo=&#34;informe.txt&#34;):
-        &#34;&#34;&#34;Método que brinda un informe rápido sobre variables del nervio, electrodos y estimulador. Brinda la posibilidad de guardar la información en un archivo txt.
+        &#34;&#34;&#34;Método que brinda un informe rápido sobre variables del nervio, electrodos y generador. Brinda la posibilidad de guardar la información en un archivo txt.
 
         Args:
             guardar (bool, optional): Variable que indica si se quiere guardar la información en un archivo txt. Por defecto es False.
@@ -2434,10 +2438,10 @@ Datos de los electrodos:
         * Grosor electrodos: {grosor}
         * Zonas de influencia: {zonas}
         
-Datos del estimulador:
-        * Tipo de estimulo: {self.estimulador.tipo_estimulo}
+Datos del generador:
+        * Tipo de impulso: {self.generador.tipo_impulso}
         * Frecuencia de muestreo: {self.frec_muestreo} Hz
-        * Tiempo de estimulo: {self.estimulador.tiempo_estimulo} segundos
+        * Tiempo de impulso: {self.generador.tiempo_impulso} segundos
         * Tiempo de registro : {self.tiempo_registro} segundos
         &#39;&#39;&#39;
         print(texto)
@@ -2446,7 +2450,7 @@ Datos del estimulador:
                 file.write(texto)
 
     def archivo_matlab(self, nombre=&#34;info_matlab.mat&#34;):
-        &#34;&#34;&#34;Devuelve un archivo .mat para ser usado en Matlab. Incluye información sobre el CAP diferencial, los CAPs con los cuales se calculó el CAP diferencial, el estímulo, y los vectores de tiempo del estímulo y CAPs.
+        &#34;&#34;&#34;Devuelve un archivo .mat para ser usado en Matlab. Incluye información sobre el CAP diferencial, los CAPs con los cuales se calculó el CAP diferencial, el impulso, y los vectores de tiempo del impulso y CAPs.
 
         Args:
             nombre (str): Nombre del archivo .mat
@@ -2460,9 +2464,9 @@ Datos del estimulador:
             &#39;CAP2&#39;:
                 self.electrodos[self.capdif_pos2].cap,
             &#39;Vm&#39;:
-                self.estimulador.estimulo[0],
+                self.generador.impulso[0],
             &#39;t_vm&#39;:
-                self.estimulador.vector_tiempo,
+                self.generador.vector_tiempo,
             &#39;t_cap&#39;:
                 np.arange(1 / self.frec_muestreo, 1 / self.frec_muestreo + self.tiempo_registro, 1 / self.frec_muestreo)
         }
@@ -2530,7 +2534,7 @@ Datos del estimulador:
         plt.xlabel(xlabel)
         plt.ylabel(ylabel)
         plt.title(titulo)
-        plt.legend(fontsize=&#39;xx-small&#39;)
+        plt.legend(fontsize=&#39;small&#39;)
         plt.axis(&#39;equal&#39;)
         plt.show()
 
@@ -2538,7 +2542,7 @@ Datos del estimulador:
             fig.savefig(nombre_figura, dpi=300, format=&#34;png&#34;)
 
     def graficas(self, titulo=None, guardar=False, nombre_figura=&#34;figura.png&#34;):
-        &#34;&#34;&#34;Método que permite graficar el estímulo, CAP de cada electrodo que se tenga agregado y CAP diferencial de 2 de los electrodos con los cuales se lo obtuvo.
+        &#34;&#34;&#34;Método que permite graficar el impulso, CAP de cada electrodo que se tenga agregado y CAP diferencial de 2 de los electrodos con los cuales se lo obtuvo.
 
         Args:
             titulo (str, optional): Título del gráfico. Por defecto no hay.
@@ -2561,8 +2565,8 @@ Datos del estimulador:
                  label=f&#34;CAP diferencial electrodos {self.capdif_pos1}-{self.capdif_pos2}&#34;)
 
         #Vm
-        plt.plot(self.estimulador.vector_tiempo * 1000,
-                 self.estimulador.estimulo[0],
+        plt.plot(self.generador.vector_tiempo * 1000,
+                 self.generador.impulso[0],
                  label=&#34;Vm&#34;,
                  color=&#39;gray&#39;,
                  linewidth=0.7)
@@ -2582,7 +2586,7 @@ Datos del estimulador:
 <span>def <span class="ident">archivo_matlab</span></span>(<span>self, nombre='info_matlab.mat')</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Devuelve un archivo .mat para ser usado en Matlab. Incluye información sobre el CAP diferencial, los CAPs con los cuales se calculó el CAP diferencial, el estímulo, y los vectores de tiempo del estímulo y CAPs.</p>
+<div class="desc"><p>Devuelve un archivo .mat para ser usado en Matlab. Incluye información sobre el CAP diferencial, los CAPs con los cuales se calculó el CAP diferencial, el impulso, y los vectores de tiempo del impulso y CAPs.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>nombre</code></strong> :&ensp;<code>str</code></dt>
@@ -2593,7 +2597,7 @@ Datos del estimulador:
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def archivo_matlab(self, nombre=&#34;info_matlab.mat&#34;):
-    &#34;&#34;&#34;Devuelve un archivo .mat para ser usado en Matlab. Incluye información sobre el CAP diferencial, los CAPs con los cuales se calculó el CAP diferencial, el estímulo, y los vectores de tiempo del estímulo y CAPs.
+    &#34;&#34;&#34;Devuelve un archivo .mat para ser usado en Matlab. Incluye información sobre el CAP diferencial, los CAPs con los cuales se calculó el CAP diferencial, el impulso, y los vectores de tiempo del impulso y CAPs.
 
     Args:
         nombre (str): Nombre del archivo .mat
@@ -2607,9 +2611,9 @@ Datos del estimulador:
         &#39;CAP2&#39;:
             self.electrodos[self.capdif_pos2].cap,
         &#39;Vm&#39;:
-            self.estimulador.estimulo[0],
+            self.generador.impulso[0],
         &#39;t_vm&#39;:
-            self.estimulador.vector_tiempo,
+            self.generador.vector_tiempo,
         &#39;t_cap&#39;:
             np.arange(1 / self.frec_muestreo, 1 / self.frec_muestreo + self.tiempo_registro, 1 / self.frec_muestreo)
     }
@@ -2633,7 +2637,7 @@ Datos del estimulador:
         electrodo.sfap_funcion(frec_muestreo=self.frec_muestreo,
                                velocidad_fibras=self.nervio.informacion_fibras()[:, 3],
                                tiempo_registro=self.tiempo_registro,
-                               estimulo=self.estimulo,
+                               impulso=self.impulso,
                                ubicacion_nodos=self.nervio.informacion_nodos,
                                num_fibras=self.nervio.cantidad_fibras)
         electrodo.cap_funcion()</code></pre>
@@ -2691,11 +2695,13 @@ Datos del estimulador:
 <dt><strong><code>pos_y</code></strong> :&ensp;<code>float</code></dt>
 <dd>Posición del electrodo en el eje y. En micrómetros.</dd>
 <dt><strong><code>pos_z</code></strong> :&ensp;<code>float</code></dt>
-<dd>Posición del electrodo en el eje z. En micrómetros.</dd>
+<dd>Posición del electrodo en el eje z. En micrómetros. </dd>
 <dt><strong><code>radio</code></strong> :&ensp;<code>float</code></dt>
-<dd>Radio del electrodo tipo Circulo. En micrómetros.</dd>
+<dd>Radio del electrodo tipo Circulo. En micrómetros. </dd>
 <dt><strong><code>lista_coordenadas</code></strong> :&ensp;<code>list</code></dt>
-<dd>Coordenadas en micrómetros del electrodo tipo Poligono.</dd>
+<dd>Coordenadas en micrometros del electrodo tipo Poligono. </dd>
+<dt><strong><code>valor</code></strong> :&ensp;<code>float</code></dt>
+<dd>Valor de la función constante para el cálculo de los pesos longitudinales.</dd>
 </dl>
 
 <h2 id="raises">Raises</h2>
@@ -2722,6 +2728,7 @@ Datos del estimulador:
         pos_z (float): Posición del electrodo en el eje z. En micrómetros.
         radio (float): Radio del electrodo tipo Circulo. En micrómetros.
         lista_coordenadas (list): Coordenadas en micrometros del electrodo tipo Poligono.
+        valor (float): Valor de la función constante para el cálculo de los pesos longitudinales.
 
     Raises:
         ObjectCreationError: Se levanta el error cuando se quiere crear un Electrodo antes de crear un Nervio.
@@ -2735,18 +2742,18 @@ Datos del estimulador:
     self.electrodos.append(nuevo_electrodo)</code></pre>
 </details>
 </dd>
-<dt id="simulacion.Entorno.crear_estimulo"><code class="name flex">
-<span>def <span class="ident">crear_estimulo</span></span>(<span>self, tipo_estimulo, frec_muestreo, tiempo_estimulo, **kwargs)</span>
+<dt id="simulacion.Entorno.crear_impulso"><code class="name flex">
+<span>def <span class="ident">crear_impulso</span></span>(<span>self, tipo_impulso, frec_muestreo, tiempo_impulso, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Método que permite crear el estímulo con el que se excitará el nervio.</p>
+<div class="desc"><p>Método que permite crear el impulso con el que se excitará el nervio.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>tipo_estimulo</code></strong> :&ensp;<code>str</code></dt>
-<dd>Tipo de estímulo que se creará. Se detallan en el enum TipoEstimulo. En segundos.</dd>
+<dt><strong><code>tipo_impulso</code></strong> :&ensp;<code>str</code></dt>
+<dd>Tipo de impulso que se creará. Se detallan en el enum TipoImpulso. En segundos.</dd>
 <dt><strong><code>frec_muestreo</code></strong> :&ensp;<code>float</code></dt>
 <dd>Frecuencia de muestreo de la señal. En Hz.</dd>
-<dt><strong><code>tiempo_estimulo</code></strong> :&ensp;<code>float</code></dt>
+<dt><strong><code>tiempo_impulso</code></strong> :&ensp;<code>float</code></dt>
 <dd>Tiempo total en el que se realizará la medición. En segundos.</dd>
 </dl>
 
@@ -2759,48 +2766,49 @@ Datos del estimulador:
 <dt><strong><code>orden_filtro</code></strong> :&ensp;<code>int</code></dt>
 <dd>Orden del filtro pasa bajos.</dd>
 <dt><strong><code>ubicacion_archivo</code></strong> :&ensp;<code>str</code></dt>
-<dd>Ubicación del archivo csv con la señal de estimulación.</dd>
-<dt><strong><code>array_estimulo</code></strong> :&ensp;<code>numpy.ndarray</code></dt>
-<dd>Numpy array con la señal de estimulación para cada fibra.</dd>
+<dd>Ubicación del archivo csv con el impulso que viajará por el nervio.</dd>
+<dt><strong><code>array_impulso</code></strong> :&ensp;<code>numpy.ndarray</code></dt>
+<dd>Numpy array con la señal del para cada fibra.</dd>
 <dt><strong><code>tiempo_inicio</code></strong> :&ensp;<code>float</code></dt>
-<dd>Momento en el que inicia el estímulo. En segundos.</dd>
+<dd>Momento en el que inicia el impulso. En segundos.</dd>
 <dt><strong><code>lista_inicio</code></strong> :&ensp;<code>list</code></dt>
 <dd>Lista con los tiempos de inicio para el tren de señales. En segundos.</dd>
 <dt><strong><code>voltaje</code></strong> :&ensp;<code>float</code></dt>
-<dd>Voltaje del estímulo. En voltios. Por defecto es 1[V].</dd>
+<dd>Voltaje del impulso cuadrado. En voltios. Por defecto es 1.</dd>
 </dl>
+</div>
 
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def crear_estimulo(self, tipo_estimulo, frec_muestreo, tiempo_estimulo, **kwargs):
-    &#34;&#34;&#34;Método que permite crear el estímulo con el que se excitará el nervio.
+<pre><code class="python">def crear_impulso(self, tipo_impulso, frec_muestreo, tiempo_impulso, **kwargs):
+    &#34;&#34;&#34;Método que permite crear el impulso con el que se excitará el nervio.
 
     Args:
-        tipo_estimulo (str): Tipo de estímulo que se creará. Se detallan en el enum TipoEstimulo. En segundos.
+        tipo_impulso (str): Tipo de impulso que se creará. Se detallan en el enum TipoImpulso. En segundos.
         frec_muestreo (float): Frecuencia de muestreo de la señal. En Hz.
-        tiempo_estimulo (float): Tiempo total en el que se realizará la medición. En segundos.
+        tiempo_impulso (float): Tiempo total en el que se realizará la medición. En segundos.
     
     Keyword Args:
         duracion(float): Tiempo en segundos que durará la señal cuadrada. En segundos.
         frec_corte(float): Frecuencia de corte del filtro Butterworth. En Hz.
         orden_filtro(int): Orden del filtro pasa bajos.
-        ubicacion_archivo(str): Ubicación del archivo csv con la señal de estimulación.
-        array_estimulo(numpy.ndarray): Numpy array con la señal de estimulación para cada fibra.
-        tiempo_inicio (float): Momento en el que inicia el estímulo. En segundos.
+        ubicacion_archivo(str): Ubicación del archivo csv con el impulso que viajará por el nervio.
+        array_impulso (numpy.ndarray): Numpy array con la señal del para cada fibra.
+        tiempo_inicio (float): Momento en el que inicia el impulso. En segundos.
         lista_inicio (list): Lista con los tiempos de inicio para el tren de señales. En segundos.
-        voltaje (float): Voltaje del estímulo. En voltios. Por defecto es 1[V].
+        voltaje (float): Voltaje del impulso cuadrado. En voltios. Por defecto es 1.
     &#34;&#34;&#34;
-    self.estimulador = Estimulador(frec_muestreo=frec_muestreo,
-                                   tiempo_estimulo=tiempo_estimulo,
-                                   num_fibras=self.nervio.cantidad_fibras)
-    self.estimulador.crear_estimulo(tipo_estimulo=tipo_estimulo, **kwargs)
-    self.estimulo = self.estimulador.estimulo
+    self.generador = Generador(frec_muestreo=frec_muestreo,
+                               tiempo_impulso=tiempo_impulso,
+                               num_fibras=self.nervio.cantidad_fibras)
+    self.generador.crear_impulso(tipo_impulso=tipo_impulso, **kwargs)
+    self.impulso = self.generador.impulso
     self.frec_muestreo = frec_muestreo
 
     if self.tiempo_registro is None:
-        self.tiempo_registro = tiempo_estimulo * 1.5</code></pre>
+        self.tiempo_registro = tiempo_impulso * 1.5</code></pre>
 </details>
 </dd>
 <dt id="simulacion.Entorno.crear_nervio"><code class="name flex">
@@ -2850,6 +2858,7 @@ Por defecto es 7.6. En [m/s/micrometro].</dd>
 <dt><strong><code>ubicacion_archivo</code></strong> :&ensp;<code>str</code></dt>
 <dd>String con la ubicación del archivo csv para el método de población desde_archivo. El archivo csv debe contener 4 columnas: posición x, posición y, diámetro y velocidad de cada fibra.</dd>
 </dl>
+</div>
 
 <details class="source">
 <summary>
@@ -2940,7 +2949,6 @@ Por defecto es 7.6. En [m/s/micrometro].</dd>
 <dt><strong><code>nombre_figura</code></strong> :&ensp;<code>str</code></dt>
 <dd>Nombre que se le dará a la figura que se desea guardar. Por defecto es "figura.png".</dd>
 </dl>
-
 <h2 id="kwargs">Keyword Args</h2>
 <dl>
 <dt><strong><code>borde_fibras</code></strong> :&ensp;<code>str</code>, optional</dt>
@@ -3014,7 +3022,7 @@ Por defecto es 7.6. En [m/s/micrometro].</dd>
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     plt.title(titulo)
-    plt.legend(fontsize=&#39;xx-small&#39;)
+    plt.legend(fontsize=&#39;small&#39;)
     plt.axis(&#39;equal&#39;)
     plt.show()
 
@@ -3026,7 +3034,7 @@ Por defecto es 7.6. En [m/s/micrometro].</dd>
 <span>def <span class="ident">graficas</span></span>(<span>self, titulo=None, guardar=False, nombre_figura='figura.png')</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Método que permite graficar el estímulo, CAP de cada electrodo que se tenga agregado y CAP diferencial de 2 de los electrodos con los cuales se lo obtuvo.</p>
+<div class="desc"><p>Método que permite graficar el impulso, CAP de cada electrodo que se tenga agregado y CAP diferencial de 2 de los electrodos con los cuales se lo obtuvo.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>titulo</code></strong> :&ensp;<code>str</code>, optional</dt>
@@ -3041,7 +3049,7 @@ Por defecto es 7.6. En [m/s/micrometro].</dd>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def graficas(self, titulo=None, guardar=False, nombre_figura=&#34;figura.png&#34;):
-    &#34;&#34;&#34;Método que permite graficar el estímulo, CAP de cada electrodo que se tenga agregado y CAP diferencial de 2 de los electrodos con los cuales se lo obtuvo.
+    &#34;&#34;&#34;Método que permite graficar el impulso, CAP de cada electrodo que se tenga agregado y CAP diferencial de 2 de los electrodos con los cuales se lo obtuvo.
 
     Args:
         titulo (str, optional): Título del gráfico. Por defecto no hay.
@@ -3064,8 +3072,8 @@ Por defecto es 7.6. En [m/s/micrometro].</dd>
              label=f&#34;CAP diferencial electrodos {self.capdif_pos1}-{self.capdif_pos2}&#34;)
 
     #Vm
-    plt.plot(self.estimulador.vector_tiempo * 1000,
-             self.estimulador.estimulo[0],
+    plt.plot(self.generador.vector_tiempo * 1000,
+             self.generador.impulso[0],
              label=&#34;Vm&#34;,
              color=&#39;gray&#39;,
              linewidth=0.7)
@@ -3113,7 +3121,7 @@ Por defecto es 7.6. En [m/s/micrometro].</dd>
 <span>def <span class="ident">informe_experimento</span></span>(<span>self, guardar=False, nombre_archivo='informe.txt')</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Método que brinda un informe rápido sobre variables del nervio, electrodos y estimulador. Brinda la posibilidad de guardar la información en un archivo txt.</p>
+<div class="desc"><p>Método que brinda un informe rápido sobre variables del nervio, electrodos y generador. Brinda la posibilidad de guardar la información en un archivo txt.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>guardar</code></strong> :&ensp;<code>bool</code>, optional</dt>
@@ -3124,7 +3132,7 @@ Por defecto es 7.6. En [m/s/micrometro].</dd>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">    def informe_experimento(self, guardar=False, nombre_archivo=&#34;informe.txt&#34;):
-        &#34;&#34;&#34;Método que brinda un informe rápido sobre variables del nervio, electrodos y estimulador. Brinda la posibilidad de guardar la información en un archivo txt.
+        &#34;&#34;&#34;Método que brinda un informe rápido sobre variables del nervio, electrodos y generador. Brinda la posibilidad de guardar la información en un archivo txt.
 
         Args:
             guardar (bool, optional): Variable que indica si se quiere guardar la información en un archivo txt. Por defecto es False.
@@ -3153,10 +3161,10 @@ Datos de los electrodos:
         * Grosor electrodos: {grosor}
         * Zonas de influencia: {zonas}
         
-Datos del estimulador:
-        * Tipo de estimulo: {self.estimulador.tipo_estimulo}
+Datos del generador:
+        * Tipo de impulso: {self.generador.tipo_impulso}
         * Frecuencia de muestreo: {self.frec_muestreo} Hz
-        * Tiempo de estimulo: {self.estimulador.tiempo_estimulo} segundos
+        * Tiempo de impulso: {self.generador.tiempo_impulso} segundos
         * Tiempo de registro : {self.tiempo_registro} segundos
         &#39;&#39;&#39;
         print(texto)
@@ -3186,410 +3194,6 @@ Datos del estimulador:
         posicion (int): Posición del electrodo que se quiere quitar.
     &#34;&#34;&#34;
     del self.electrodos[posicion]</code></pre>
-</details>
-</dd>
-</dl>
-</dd>
-<dt id="simulacion.Estimulador"><code class="flex name class">
-<span>class <span class="ident">Estimulador</span></span>
-<span>(</span><span>frec_muestreo, tiempo_estimulo, num_fibras)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Encargado de generar el impulso de entrada al Nervio.</p>
-<p>Método constructor de la clase Estimulador.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>frec_muestreo</code></strong> :&ensp;<code>float</code></dt>
-<dd>Frecuencia de muestreo. En Hz.</dd>
-<dt><strong><code>tiempo_estimulo</code></strong> :&ensp;<code>float</code></dt>
-<dd>Tiempo total que durará el registro. En segundos.</dd>
-<dt><strong><code>num_fibras</code></strong> :&ensp;<code>int</code></dt>
-<dd>Número de fibras del nervio.</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">class Estimulador:
-    &#34;&#34;&#34;Encargado de generar el impulso de entrada al Nervio.
-    &#34;&#34;&#34;
-
-    def __init__(self, frec_muestreo, tiempo_estimulo, num_fibras):
-        &#34;&#34;&#34;Método constructor de la clase Estimulador.
-
-        Args:
-            frec_muestreo (float): Frecuencia de muestreo. En Hz.
-            tiempo_estimulo (float): Tiempo total que durará el registro. En segundos.
-            num_fibras (int): Número de fibras del nervio.
-        &#34;&#34;&#34;
-        self.cant_muestras = int(frec_muestreo * tiempo_estimulo)
-        self.frec = frec_muestreo
-        self.tiempo_estimulo = tiempo_estimulo
-        self.num_fibras = num_fibras
-        self.estimulo = None
-        self.vector_tiempo = np.arange(1 / self.frec, self.tiempo_estimulo + 1 / self.frec, 1 / self.frec)
-        self.tipo_estimulo = None
-
-    def crear_estimulo(self, tipo_estimulo, **kwargs):
-        &#34;&#34;&#34;Método para crear el estímulo que se usará con las fibras del nervio.
-
-        Args:
-            tipo_estimulo (str): Tipo de estímulo que se creará. Se detallan en el enum TipoEstimulo.
-            
-        Keyword Args:
-            duracion(float): Tiempo en segundos que durará la señal cuadrada.
-            tiempo_inicio (float): Momento en el que inicia el estímulo. En segundos.
-            lista_tiempo_inicio(list): Lista con los tiempos en segundos en los cuales se quiere tener un potencial de acción.
-            frec_corte(float): Frecuencia de corte del filtro Butterworth. En Hz.
-            orden_filtro(int): Orden del filtro pasa bajos.
-            ubicacion_archivo(str): Ubicación del archivo csv con la señal de estimulación.
-            array_estimulo(numpy.ndarray): Numpy array con la señal de estimulación.
-
-        Raises:
-            InputError: Se levanta cuando se ingresa un tipo de estímulo no válido.
-        &#34;&#34;&#34;
-        self.tipo_estimulo = tipo_estimulo
-        if tipo_estimulo == TipoEstimulo.cuadrado.name:
-            self.estimulo_cuadrado(tiempo_inicio=kwargs.get(&#34;tiempo_inicio&#34;, 0),
-                                   duracion=kwargs.get(&#39;duracion&#39;, 0.0),
-                                   voltaje=kwargs.get(&#39;voltaje&#39;, 1))
-        elif tipo_estimulo == TipoEstimulo.potencial_de_accion.name:
-            self.potencial_de_accion(tiempo_inicio=kwargs.get(&#34;tiempo_inicio&#34;, 0),
-                                     frec_corte=kwargs.get(&#39;frec_corte&#39;, 1000),
-                                     orden_filtro=kwargs.get(&#39;orden_filtro&#39;, 2),
-                                     lista_inicio=kwargs.get(&#34;lista_inicio&#34;, None))
-        elif tipo_estimulo == TipoEstimulo.manual.name:
-            self.estimulo_manual(array_estimulo=kwargs.get(&#39;array_estimulo&#39;, None),
-                                 tiempo_inicio=kwargs.get(&#34;tiempo_inicio&#34;, 0))
-        elif tipo_estimulo == TipoEstimulo.desde_archivo.name:
-            self.estimulo_desde_archivo(tiempo_inicio=kwargs.get(&#34;tiempo_inicio&#34;, 0),
-                                        ubicacion_archivo=kwargs.get(&#39;ubicacion_archivo&#39;, None))
-        else:
-            raise InputError(&#34;El tipo de impulso ingresado no es correcto.&#34;)
-
-    def estimulo_cuadrado(self, tiempo_inicio, duracion, voltaje):
-        &#34;&#34;&#34;Método para crear un estímulo cuadrado o spike.
-
-        Args:
-            tiempo_inicio (float): Tiempo en el que se desea iniciar el estímulo. En segundos.
-            duracion (float): Tiempo que durará el estímulo. Si es cero, se tendrá una spike. En segundos.
-        &#34;&#34;&#34;
-        inicio = int(tiempo_inicio * self.frec)
-        duracion = duracion * self.frec
-        self.estimulo = np.array([
-            np.array([voltaje if (j &gt;= inicio and j &lt;= (inicio + duracion)) else 0
-                      for j in range(self.cant_muestras)])
-            for i in range(self.num_fibras)
-        ])
-
-    def potencial_de_accion(self, tiempo_inicio, lista_inicio, frec_corte, orden_filtro):
-        &#34;&#34;&#34;Método para crear un potencial de acción.
-
-        Args:
-            tiempo_inicio (float): Tiempo en el que se desea iniciar el estímulo. En segundos.
-            lista_tiempo_inicio (list): Lista con los tiempos (en segundos) en donde comenzará la señal.
-            frec_corte (float): Frecuencia de corte del filtro pasabajos Butterworth. En Hz.
-            orden_filtro (int): Orden del filtro Butterworth.
-        &#34;&#34;&#34;
-
-        if lista_inicio is not None:
-            inicio = [int(i * self.frec) for i in lista_inicio]
-        else:
-            inicio = int(tiempo_inicio * self.frec)
-
-        #Señal de entrada
-        x = np.zeros_like(self.vector_tiempo)
-        x[inicio] = 1
-
-        #Filtro Butter
-        b, a = signal.butter(orden_filtro, frec_corte / (self.frec / 2))
-        Vm = signal.lfilter(b, a, x)
-        Vm = Vm / np.max(Vm)  #Vm normalizado
-
-        self.estimulo = np.repeat([Vm], self.num_fibras, axis=0)
-
-    def estimulo_manual(self, array_estimulo, tiempo_inicio):
-        &#34;&#34;&#34;Método para crear un estímulo de forma manual, a partir de un array con la señal.
-
-        Args:
-            array_estimulo (numpy.ndarray): Señal con la cual se estimularán las fibras del nervio.
-            tiempo_inicio (float): Tiempo en el que inicia el estímulo. En segundos.
-        &#34;&#34;&#34;
-        if len(array_estimulo) != self.num_fibras:
-            raise InputError(
-                &#34;EL array con la señal del estímulo debe tener tantas filas como fibras haya en el nervio.&#34;)
-        estim = np.zeros((len(array_estimulo), self.cant_muestras))
-        inicio = int(tiempo_inicio * self.frec)
-        flag = False
-
-        if not np.isnan(sum(array_estimulo)).any() and np.issubdtype(array_estimulo.dtype, np.number):
-            for i, est in enumerate(array_estimulo):
-                muestras_estimulo = len(est)
-                if muestras_estimulo &gt; self.cant_muestras - inicio:
-                    muestras_estimulo = self.cant_muestras - inicio
-                    flag = True
-                estim[i][inicio:inicio + muestras_estimulo] = array_estimulo[i][:muestras_estimulo]
-        if flag is True:
-            print(&#34;Se recortó por lo menos una señal de estímulo debido a su tamaño.&#34;)
-
-        estim_normalizado = estim / np.amax(estim, axis=1, keepdims=True)
-        self.estimulo = estim_normalizado
-
-    def estimulo_desde_archivo(self, ubicacion_archivo, tiempo_inicio):
-        &#34;&#34;&#34;Método para cargar un estímulo desde un archivo csv.
-
-        Args:
-            ubicacion_archivo (str): Ubicación del archivo csv.
-            tiempo_inicio (float): Tiempo en el que se iniciará el estímulo. En segundos.
-
-        Raises:
-            LoadingError: Error que se levanta cuando no se puede leer el archivo.
-        &#34;&#34;&#34;
-        try:
-            estimulo = np.genfromtxt(ubicacion_archivo, delimiter=&#39;,&#39;)
-        except Exception as e:
-            raise LoadingError(&#39;Fallo en la carga del archivo.&#39;) from e
-
-        self.estimulo_manual(array_estimulo=estimulo, tiempo_inicio=tiempo_inicio)</code></pre>
-</details>
-<h3>Methods</h3>
-<dl>
-<dt id="simulacion.Estimulador.crear_estimulo"><code class="name flex">
-<span>def <span class="ident">crear_estimulo</span></span>(<span>self, tipo_estimulo, **kwargs)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Método para crear el estímulo que se usará con las fibras del nervio.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>tipo_estimulo</code></strong> :&ensp;<code>str</code></dt>
-<dd>Tipo de estímulo que se creará. Se detallan en el enum TipoEstimulo.</dd>
-</dl>
-
-<h2 id="args">Keyword Args</h2>
-<dl>
-<dt><strong><code>duracion</code></strong> :&ensp;<code>float</code></dt>
-<dd>Tiempo en segundos que durará la señal cuadrada.</dd>
-<dt><strong><code>tiempo_inicio</code></strong> :&ensp;<code>float</code></dt>
-<dd>Momento en el que inicia el estímulo. En segundos.</dd>
-<dt><strong><code>lista_tiempo_inicio</code></strong> :&ensp;<code>list</code></dt>
-<dd>Lista con los tiempos en segundos en los cuales se quiere tener un potencial de acción.</dd>
-<dt><strong><code>frec_corte</code></strong> :&ensp;<code>float</code></dt>
-<dd>Frecuencia de corte del filtro Butterworth. En Hz.</dd>
-<dt><strong><code>orden_filtro</code></strong> :&ensp;<code>int</code></dt>
-<dd>Orden del filtro pasa bajos.</dd>
-<dt><strong><code>ubicacion_archivo</code></strong> :&ensp;<code>str</code></dt>
-<dd>Ubicación del archivo csv con la señal de estimulación.</dd>
-<dt><strong><code>array_estimulo</code></strong> :&ensp;<code>numpy.ndarray</code></dt>
-<dd>Numpy array con la señal de estimulación.</dd>
-</dl>
-
-<h2 id="raises">Raises</h2>
-<dl>
-<dt><code><a title="simulacion.InputError" href="#simulacion.InputError">InputError</a></code></dt>
-<dd>Se levanta cuando se ingresa un tipo de estímulo no válido.</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def crear_estimulo(self, tipo_estimulo, **kwargs):
-    &#34;&#34;&#34;Método para crear el estímulo que se usará con las fibras del nervio.
-
-    Args:
-        tipo_estimulo (str): Tipo de estímulo que se creará. Se detallan en el enum TipoEstimulo.
-        
-    Keyword Args:
-        duracion(float): Tiempo en segundos que durará la señal cuadrada.
-        tiempo_inicio (float): Momento en el que inicia el estímulo. En segundos.
-        lista_tiempo_inicio(list): Lista con los tiempos en segundos en los cuales se quiere tener un potencial de acción.
-        frec_corte(float): Frecuencia de corte del filtro Butterworth. En Hz.
-        orden_filtro(int): Orden del filtro pasa bajos.
-        ubicacion_archivo(str): Ubicación del archivo csv con la señal de estimulación.
-        array_estimulo(numpy.ndarray): Numpy array con la señal de estimulación.
-
-    Raises:
-        InputError: Se levanta cuando se ingresa un tipo de estímulo no válido.
-    &#34;&#34;&#34;
-    self.tipo_estimulo = tipo_estimulo
-    if tipo_estimulo == TipoEstimulo.cuadrado.name:
-        self.estimulo_cuadrado(tiempo_inicio=kwargs.get(&#34;tiempo_inicio&#34;, 0),
-                               duracion=kwargs.get(&#39;duracion&#39;, 0.0),
-                               voltaje=kwargs.get(&#39;voltaje&#39;, 1))
-    elif tipo_estimulo == TipoEstimulo.potencial_de_accion.name:
-        self.potencial_de_accion(tiempo_inicio=kwargs.get(&#34;tiempo_inicio&#34;, 0),
-                                 frec_corte=kwargs.get(&#39;frec_corte&#39;, 1000),
-                                 orden_filtro=kwargs.get(&#39;orden_filtro&#39;, 2),
-                                 lista_inicio=kwargs.get(&#34;lista_inicio&#34;, None))
-    elif tipo_estimulo == TipoEstimulo.manual.name:
-        self.estimulo_manual(array_estimulo=kwargs.get(&#39;array_estimulo&#39;, None),
-                             tiempo_inicio=kwargs.get(&#34;tiempo_inicio&#34;, 0))
-    elif tipo_estimulo == TipoEstimulo.desde_archivo.name:
-        self.estimulo_desde_archivo(tiempo_inicio=kwargs.get(&#34;tiempo_inicio&#34;, 0),
-                                    ubicacion_archivo=kwargs.get(&#39;ubicacion_archivo&#39;, None))
-    else:
-        raise InputError(&#34;El tipo de impulso ingresado no es correcto.&#34;)</code></pre>
-</details>
-</dd>
-<dt id="simulacion.Estimulador.estimulo_cuadrado"><code class="name flex">
-<span>def <span class="ident">estimulo_cuadrado</span></span>(<span>self, tiempo_inicio, duracion, voltaje)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Método para crear un estímulo cuadrado o spike.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>tiempo_inicio</code></strong> :&ensp;<code>float</code></dt>
-<dd>Tiempo en el que se desea iniciar el estímulo. En segundos.</dd>
-<dt><strong><code>duracion</code></strong> :&ensp;<code>float</code></dt>
-<dd>Tiempo que durará el estímulo. Si es cero, se tendrá una spike. En segundos.</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def estimulo_cuadrado(self, tiempo_inicio, duracion, voltaje):
-    &#34;&#34;&#34;Método para crear un estímulo cuadrado o spike.
-
-    Args:
-        tiempo_inicio (float): Tiempo en el que se desea iniciar el estímulo. En segundos.
-        duracion (float): Tiempo que durará el estímulo. Si es cero, se tendrá una spike. En segundos.
-    &#34;&#34;&#34;
-    inicio = int(tiempo_inicio * self.frec)
-    duracion = duracion * self.frec
-    self.estimulo = np.array([
-        np.array([voltaje if (j &gt;= inicio and j &lt;= (inicio + duracion)) else 0
-                  for j in range(self.cant_muestras)])
-        for i in range(self.num_fibras)
-    ])</code></pre>
-</details>
-</dd>
-<dt id="simulacion.Estimulador.estimulo_desde_archivo"><code class="name flex">
-<span>def <span class="ident">estimulo_desde_archivo</span></span>(<span>self, ubicacion_archivo, tiempo_inicio)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Método para cargar un estímulo desde un archivo csv.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>ubicacion_archivo</code></strong> :&ensp;<code>str</code></dt>
-<dd>Ubicación del archivo csv.</dd>
-<dt><strong><code>tiempo_inicio</code></strong> :&ensp;<code>float</code></dt>
-<dd>Tiempo en el que se iniciará el estímulo. En segundos.</dd>
-</dl>
-<h2 id="raises">Raises</h2>
-<dl>
-<dt><code><a title="simulacion.LoadingError" href="#simulacion.LoadingError">LoadingError</a></code></dt>
-<dd>Error que se levanta cuando no se puede leer el archivo.</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def estimulo_desde_archivo(self, ubicacion_archivo, tiempo_inicio):
-    &#34;&#34;&#34;Método para cargar un estímulo desde un archivo csv.
-
-    Args:
-        ubicacion_archivo (str): Ubicación del archivo csv.
-        tiempo_inicio (float): Tiempo en el que se iniciará el estímulo. En segundos.
-
-    Raises:
-        LoadingError: Error que se levanta cuando no se puede leer el archivo.
-    &#34;&#34;&#34;
-    try:
-        estimulo = np.genfromtxt(ubicacion_archivo, delimiter=&#39;,&#39;)
-    except Exception as e:
-        raise LoadingError(&#39;Fallo en la carga del archivo.&#39;) from e
-
-    self.estimulo_manual(array_estimulo=estimulo, tiempo_inicio=tiempo_inicio)</code></pre>
-</details>
-</dd>
-<dt id="simulacion.Estimulador.estimulo_manual"><code class="name flex">
-<span>def <span class="ident">estimulo_manual</span></span>(<span>self, array_estimulo, tiempo_inicio)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Método para crear un estímulo de forma manual, a partir de un array con la señal.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>array_estimulo</code></strong> :&ensp;<code>numpy.ndarray</code></dt>
-<dd>Señal con la cual se estimularán las fibras del nervio.</dd>
-<dt><strong><code>tiempo_inicio</code></strong> :&ensp;<code>float</code></dt>
-<dd>Tiempo en el que inicia el estímulo. En segundos.</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def estimulo_manual(self, array_estimulo, tiempo_inicio):
-    &#34;&#34;&#34;Método para crear un estímulo de forma manual, a partir de un array con la señal.
-
-    Args:
-        array_estimulo (numpy.ndarray): Señal con la cual se estimularán las fibras del nervio.
-        tiempo_inicio (float): Tiempo en el que inicia el estímulo. En segundos.
-    &#34;&#34;&#34;
-    if len(array_estimulo) != self.num_fibras:
-        raise InputError(
-            &#34;EL array con la señal del estímulo debe tener tantas filas como fibras haya en el nervio.&#34;)
-    estim = np.zeros((len(array_estimulo), self.cant_muestras))
-    inicio = int(tiempo_inicio * self.frec)
-    flag = False
-
-    if not np.isnan(sum(array_estimulo)).any() and np.issubdtype(array_estimulo.dtype, np.number):
-        for i, est in enumerate(array_estimulo):
-            muestras_estimulo = len(est)
-            if muestras_estimulo &gt; self.cant_muestras - inicio:
-                muestras_estimulo = self.cant_muestras - inicio
-                flag = True
-            estim[i][inicio:inicio + muestras_estimulo] = array_estimulo[i][:muestras_estimulo]
-    if flag is True:
-        print(&#34;Se recortó por lo menos una señal de estímulo debido a su tamaño.&#34;)
-
-    estim_normalizado = estim / np.amax(estim, axis=1, keepdims=True)
-    self.estimulo = estim_normalizado</code></pre>
-</details>
-</dd>
-<dt id="simulacion.Estimulador.potencial_de_accion"><code class="name flex">
-<span>def <span class="ident">potencial_de_accion</span></span>(<span>self, tiempo_inicio, lista_inicio, frec_corte, orden_filtro)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Método para crear un potencial de acción.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>tiempo_inicio</code></strong> :&ensp;<code>float</code></dt>
-<dd>Tiempo en el que se desea iniciar el estímulo. En segundos.</dd>
-<dt><strong><code>lista_tiempo_inicio</code></strong> :&ensp;<code>list</code></dt>
-<dd>Lista con los tiempos (en segundos) en donde comenzará la señal.</dd>
-<dt><strong><code>frec_corte</code></strong> :&ensp;<code>float</code></dt>
-<dd>Frecuencia de corte del filtro pasabajos Butterworth. En Hz.</dd>
-<dt><strong><code>orden_filtro</code></strong> :&ensp;<code>int</code></dt>
-<dd>Orden del filtro Butterworth.</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def potencial_de_accion(self, tiempo_inicio, lista_inicio, frec_corte, orden_filtro):
-    &#34;&#34;&#34;Método para crear un potencial de acción.
-
-    Args:
-        tiempo_inicio (float): Tiempo en el que se desea iniciar el estímulo. En segundos.
-        lista_tiempo_inicio (list): Lista con los tiempos (en segundos) en donde comenzará la señal.
-        frec_corte (float): Frecuencia de corte del filtro pasabajos Butterworth. En Hz.
-        orden_filtro (int): Orden del filtro Butterworth.
-    &#34;&#34;&#34;
-
-    if lista_inicio is not None:
-        inicio = [int(i * self.frec) for i in lista_inicio]
-    else:
-        inicio = int(tiempo_inicio * self.frec)
-
-    #Señal de entrada
-    x = np.zeros_like(self.vector_tiempo)
-    x[inicio] = 1
-
-    #Filtro Butter
-    b, a = signal.butter(orden_filtro, frec_corte / (self.frec / 2))
-    Vm = signal.lfilter(b, a, x)
-    Vm = Vm / np.max(Vm)  #Vm normalizado
-
-    self.estimulo = np.repeat([Vm], self.num_fibras, axis=0)</code></pre>
 </details>
 </dd>
 </dl>
@@ -3679,7 +3283,6 @@ Datos del estimulador:
         Returns:
             numpy.ndarray: Devuelve un array con la ubicación de los nodos de la fibra.
         &#34;&#34;&#34;
-        #arr = np.arange(-longitud_fibra/2,longitud_fibra*1.5 +1,distancia_nodos)
         arr = np.arange(-longitud_fibra / 2, longitud_fibra * 1.5, distancia_nodos)
         if distribucion_variacion == VariacionNodos.uniforme.name:
             var = np.random.uniform(-variacion / 2, variacion / 2, len(arr)) + desplazamiento
@@ -3803,7 +3406,6 @@ Datos del estimulador:
     Returns:
         numpy.ndarray: Devuelve un array con la ubicación de los nodos de la fibra.
     &#34;&#34;&#34;
-    #arr = np.arange(-longitud_fibra/2,longitud_fibra*1.5 +1,distancia_nodos)
     arr = np.arange(-longitud_fibra / 2, longitud_fibra * 1.5, distancia_nodos)
     if distribucion_variacion == VariacionNodos.uniforme.name:
         var = np.random.uniform(-variacion / 2, variacion / 2, len(arr)) + desplazamiento
@@ -3845,6 +3447,408 @@ Datos del estimulador:
 <dt id="simulacion.FormaDePloteo.fibras_sin_diametro"><code class="name">var <span class="ident">fibras_sin_diametro</span></code></dt>
 <dd>
 <div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="simulacion.Generador"><code class="flex name class">
+<span>class <span class="ident">Generador</span></span>
+<span>(</span><span>frec_muestreo, tiempo_impulso, num_fibras)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Encargado de generar el impulso de que viajará por el Nervio.</p>
+<p>Método constructor de la clase Generador.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>frec_muestreo</code></strong> :&ensp;<code>float</code></dt>
+<dd>Frecuencia de muestreo. En Hz.</dd>
+<dt><strong><code>tiempo_impulso</code></strong> :&ensp;<code>float</code></dt>
+<dd>Tiempo total que durará el registro. En segundos.</dd>
+<dt><strong><code>num_fibras</code></strong> :&ensp;<code>int</code></dt>
+<dd>Número de fibras del nervio.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class Generador:
+    &#34;&#34;&#34;Encargado de generar el impulso de que viajará por el Nervio.
+    &#34;&#34;&#34;
+
+    def __init__(self, frec_muestreo, tiempo_impulso, num_fibras):
+        &#34;&#34;&#34;Método constructor de la clase Generador.
+
+        Args:
+            frec_muestreo (float): Frecuencia de muestreo. En Hz.
+            tiempo_impulso (float): Tiempo total que durará el registro. En segundos.
+            num_fibras (int): Número de fibras del nervio.
+        &#34;&#34;&#34;
+        self.cant_muestras = int(frec_muestreo * tiempo_impulso)
+        self.frec = frec_muestreo
+        self.tiempo_impulso = tiempo_impulso
+        self.num_fibras = num_fibras
+        self.impulso = None
+        self.vector_tiempo = np.arange(1 / self.frec, self.tiempo_impulso + 1 / self.frec, 1 / self.frec)
+        self.tipo_impulso = None
+
+    def crear_impulso(self, tipo_impulso, **kwargs):
+        &#34;&#34;&#34;Método para crear el impulso que se usará con las fibras del nervio.
+
+        Args:
+            tipo_impulso (str): Tipo de impulso que se creará. Se detallan en el enum TipoImpulso.
+            
+        Keyword Args:
+            duracion(float): Tiempo en segundos que durará la señal cuadrada.
+            tiempo_inicio (float): Momento en el que inicia el impulso. En segundos.
+            lista_tiempo_inicio(list): Lista con los tiempos en segundos en los cuales se quiere tener un potencial de acción.
+            frec_corte(float): Frecuencia de corte del filtro Butterworth. En Hz.
+            orden_filtro(int): Orden del filtro pasa bajos.
+            ubicacion_archivo(str): Ubicación del archivo csv con el impulso nervioso.
+            array_impulso(numpy.ndarray): Numpy array con el impulso nervioso.
+
+        Raises:
+            InputError: Se levanta cuando se ingresa un tipo de impulso no válido.
+        &#34;&#34;&#34;
+        self.tipo_impulso = tipo_impulso
+        if tipo_impulso == TipoImpulso.cuadrado.name:
+            self.impulso_cuadrado(tiempo_inicio=kwargs.get(&#34;tiempo_inicio&#34;, 0),
+                                  duracion=kwargs.get(&#39;duracion&#39;, 0.0),
+                                  voltaje=kwargs.get(&#39;voltaje&#39;, 1))
+        elif tipo_impulso == TipoImpulso.potencial_de_accion.name:
+            self.potencial_de_accion(tiempo_inicio=kwargs.get(&#34;tiempo_inicio&#34;, 0),
+                                     frec_corte=kwargs.get(&#39;frec_corte&#39;, 1000),
+                                     orden_filtro=kwargs.get(&#39;orden_filtro&#39;, 2),
+                                     lista_inicio=kwargs.get(&#34;lista_inicio&#34;, None))
+        elif tipo_impulso == TipoImpulso.manual.name:
+            self.impulso_manual(array_impulso=kwargs.get(&#39;array_impulso&#39;, None),
+                                tiempo_inicio=kwargs.get(&#34;tiempo_inicio&#34;, 0))
+        elif tipo_impulso == TipoImpulso.desde_archivo.name:
+            self.impulso_desde_archivo(tiempo_inicio=kwargs.get(&#34;tiempo_inicio&#34;, 0),
+                                       ubicacion_archivo=kwargs.get(&#39;ubicacion_archivo&#39;, None))
+        else:
+            raise InputError(&#34;El tipo de impulso ingresado no es correcto.&#34;)
+
+    def impulso_cuadrado(self, tiempo_inicio, duracion, voltaje):
+        &#34;&#34;&#34;Método para crear un impulso cuadrado o spike.
+
+        Args:
+            tiempo_inicio (float): Tiempo en el que se desea iniciar el impulso. En segundos.
+            duracion (float): Tiempo que durará el impulso. Si es cero, se tendrá una spike. En segundos.
+        &#34;&#34;&#34;
+        inicio = int(tiempo_inicio * self.frec)
+        duracion = duracion * self.frec
+        self.impulso = np.array([
+            np.array([voltaje if (j &gt;= inicio and j &lt;= (inicio + duracion)) else 0
+                      for j in range(self.cant_muestras)])
+            for i in range(self.num_fibras)
+        ])
+
+    def potencial_de_accion(self, tiempo_inicio, lista_inicio, frec_corte, orden_filtro):
+        &#34;&#34;&#34;Método para crear un potencial de acción.
+
+        Args:
+            tiempo_inicio (float): Tiempo en el que se desea iniciar el impulso. En segundos.
+            lista_tiempo_inicio (list): Lista con los tiempos (en segundos) en donde comenzará la señal.
+            frec_corte (float): Frecuencia de corte del filtro pasabajos Butterworth. En Hz.
+            orden_filtro (int): Orden del filtro Butterworth.
+        &#34;&#34;&#34;
+
+        if lista_inicio is not None:
+            inicio = [int(i * self.frec) for i in lista_inicio]
+        else:
+            inicio = int(tiempo_inicio * self.frec)
+
+        #Señal de entrada
+        x = np.zeros_like(self.vector_tiempo)
+        x[inicio] = 1
+
+        #Filtro Butter
+        b, a = signal.butter(orden_filtro, frec_corte / (self.frec / 2))
+        Vm = signal.lfilter(b, a, x)
+        Vm = Vm / np.max(Vm)  #Vm normalizado
+
+        self.impulso = np.repeat([Vm], self.num_fibras, axis=0)
+
+    def impulso_manual(self, array_impulso, tiempo_inicio):
+        &#34;&#34;&#34;Método para crear un impulso de forma manual, a partir de un array con la señal.
+
+        Args:
+            array_impulso (numpy.ndarray): Array con la señal que se propagará por las fibras del nervio.
+            tiempo_inicio (float): Tiempo en el que inicia el impulso. En segundos.
+        &#34;&#34;&#34;
+        if len(array_impulso) != self.num_fibras:
+            raise InputError(&#34;EL array con la señal del impulso debe tener tantas filas como fibras haya en el nervio.&#34;)
+        impulse = np.zeros((len(array_impulso), self.cant_muestras))
+        inicio = int(tiempo_inicio * self.frec)
+        flag = False
+
+        if not np.isnan(sum(array_impulso)).any() and np.issubdtype(array_impulso.dtype, np.number):
+            for i, est in enumerate(array_impulso):
+                muestras_impulso = len(est)
+                if muestras_impulso &gt; self.cant_muestras - inicio:
+                    muestras_impulso = self.cant_muestras - inicio
+                    flag = True
+                impulse[i][inicio:inicio + muestras_impulso] = array_impulso[i][:muestras_impulso]
+        if flag is True:
+            print(&#34;Se recortó por lo menos una señal de impulso debido a su tamaño.&#34;)
+
+        impulse_normalizado = impulse / np.amax(impulse, axis=1, keepdims=True)
+        self.impulso = impulse_normalizado
+
+    def impulso_desde_archivo(self, ubicacion_archivo, tiempo_inicio):
+        &#34;&#34;&#34;Método para cargar un impulso desde un archivo csv.
+
+        Args:
+            ubicacion_archivo (str): Ubicación del archivo csv.
+            tiempo_inicio (float): Tiempo en el que se iniciará el impulso. En segundos.
+
+        Raises:
+            LoadingError: Error que se levanta cuando no se puede leer el archivo.
+        &#34;&#34;&#34;
+        try:
+            impulso = np.genfromtxt(ubicacion_archivo, delimiter=&#39;,&#39;)
+        except Exception as e:
+            raise LoadingError(&#39;Fallo en la carga del archivo.&#39;) from e
+
+        self.impulso_manual(array_impulso=impulso, tiempo_inicio=tiempo_inicio)</code></pre>
+</details>
+<h3>Methods</h3>
+<dl>
+<dt id="simulacion.Generador.crear_impulso"><code class="name flex">
+<span>def <span class="ident">crear_impulso</span></span>(<span>self, tipo_impulso, **kwargs)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Método para crear el impulso que se usará con las fibras del nervio.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>tipo_impulso</code></strong> :&ensp;<code>str</code></dt>
+<dd>Tipo de impulso que se creará. Se detallan en el enum TipoImpulso.</dd>
+</dl>
+
+<h2 id="args">Keyword Args</h2>
+<dl>
+<dt><strong><code>duracion</code></strong> :&ensp;<code>float</code></dt>
+<dd>Tiempo en segundos que durará la señal cuadrada.</dd>
+<dt><strong><code>tiempo_inicio</code></strong> :&ensp;<code>float</code></dt>
+<dd>Momento en el que inicia el impulso. En segundos.</dd>
+<dt><strong><code>lista_tiempo_inicio</code></strong> :&ensp;<code>list</code></dt>
+<dd>Lista con los tiempos en segundos en los cuales se quiere tener un potencial de acción.</dd>
+<dt><strong><code>frec_corte</code></strong> :&ensp;<code>float</code></dt>
+<dd>Frecuencia de corte del filtro Butterworth. En Hz.</dd>
+<dt><strong><code>orden_filtro</code></strong> :&ensp;<code>int</code></dt>
+<dd>Orden del filtro pasa bajos.</dd>
+<dt><strong><code>ubicacion_archivo</code></strong> :&ensp;<code>str</code></dt>
+<dd>Ubicación del archivo csv con el impulso nervioso.</dd>
+<dt><strong><code>array_impulso</code></strong> :&ensp;<code>numpy.ndarray</code></dt>
+<dd>Numpy array con el impulso nervioso.</dd>
+</dl>
+
+<h2 id="raises">Raises</h2>
+<dl>
+<dt><code><a title="simulacion.InputError" href="#simulacion.InputError">InputError</a></code></dt>
+<dd>Se levanta cuando se ingresa un tipo de impulso no válido.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def crear_impulso(self, tipo_impulso, **kwargs):
+    &#34;&#34;&#34;Método para crear el impulso que se usará con las fibras del nervio.
+
+    Args:
+        tipo_impulso (str): Tipo de impulso que se creará. Se detallan en el enum TipoImpulso.
+        
+    Keyword Args:
+        duracion(float): Tiempo en segundos que durará la señal cuadrada.
+        tiempo_inicio (float): Momento en el que inicia el impulso. En segundos.
+        lista_tiempo_inicio(list): Lista con los tiempos en segundos en los cuales se quiere tener un potencial de acción.
+        frec_corte(float): Frecuencia de corte del filtro Butterworth. En Hz.
+        orden_filtro(int): Orden del filtro pasa bajos.
+        ubicacion_archivo(str): Ubicación del archivo csv con el impulso nervioso.
+        array_impulso(numpy.ndarray): Numpy array con el impulso nervioso.
+
+    Raises:
+        InputError: Se levanta cuando se ingresa un tipo de impulso no válido.
+    &#34;&#34;&#34;
+    self.tipo_impulso = tipo_impulso
+    if tipo_impulso == TipoImpulso.cuadrado.name:
+        self.impulso_cuadrado(tiempo_inicio=kwargs.get(&#34;tiempo_inicio&#34;, 0),
+                              duracion=kwargs.get(&#39;duracion&#39;, 0.0),
+                              voltaje=kwargs.get(&#39;voltaje&#39;, 1))
+    elif tipo_impulso == TipoImpulso.potencial_de_accion.name:
+        self.potencial_de_accion(tiempo_inicio=kwargs.get(&#34;tiempo_inicio&#34;, 0),
+                                 frec_corte=kwargs.get(&#39;frec_corte&#39;, 1000),
+                                 orden_filtro=kwargs.get(&#39;orden_filtro&#39;, 2),
+                                 lista_inicio=kwargs.get(&#34;lista_inicio&#34;, None))
+    elif tipo_impulso == TipoImpulso.manual.name:
+        self.impulso_manual(array_impulso=kwargs.get(&#39;array_impulso&#39;, None),
+                            tiempo_inicio=kwargs.get(&#34;tiempo_inicio&#34;, 0))
+    elif tipo_impulso == TipoImpulso.desde_archivo.name:
+        self.impulso_desde_archivo(tiempo_inicio=kwargs.get(&#34;tiempo_inicio&#34;, 0),
+                                   ubicacion_archivo=kwargs.get(&#39;ubicacion_archivo&#39;, None))
+    else:
+        raise InputError(&#34;El tipo de impulso ingresado no es correcto.&#34;)</code></pre>
+</details>
+</dd>
+<dt id="simulacion.Generador.impulso_cuadrado"><code class="name flex">
+<span>def <span class="ident">impulso_cuadrado</span></span>(<span>self, tiempo_inicio, duracion, voltaje)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Método para crear un impulso cuadrado o spike.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>tiempo_inicio</code></strong> :&ensp;<code>float</code></dt>
+<dd>Tiempo en el que se desea iniciar el impulso. En segundos.</dd>
+<dt><strong><code>duracion</code></strong> :&ensp;<code>float</code></dt>
+<dd>Tiempo que durará el impulso. Si es cero, se tendrá una spike. En segundos.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def impulso_cuadrado(self, tiempo_inicio, duracion, voltaje):
+    &#34;&#34;&#34;Método para crear un impulso cuadrado o spike.
+
+    Args:
+        tiempo_inicio (float): Tiempo en el que se desea iniciar el impulso. En segundos.
+        duracion (float): Tiempo que durará el impulso. Si es cero, se tendrá una spike. En segundos.
+    &#34;&#34;&#34;
+    inicio = int(tiempo_inicio * self.frec)
+    duracion = duracion * self.frec
+    self.impulso = np.array([
+        np.array([voltaje if (j &gt;= inicio and j &lt;= (inicio + duracion)) else 0
+                  for j in range(self.cant_muestras)])
+        for i in range(self.num_fibras)
+    ])</code></pre>
+</details>
+</dd>
+<dt id="simulacion.Generador.impulso_desde_archivo"><code class="name flex">
+<span>def <span class="ident">impulso_desde_archivo</span></span>(<span>self, ubicacion_archivo, tiempo_inicio)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Método para cargar un impulso desde un archivo csv.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>ubicacion_archivo</code></strong> :&ensp;<code>str</code></dt>
+<dd>Ubicación del archivo csv.</dd>
+<dt><strong><code>tiempo_inicio</code></strong> :&ensp;<code>float</code></dt>
+<dd>Tiempo en el que se iniciará el impulso. En segundos.</dd>
+</dl>
+<h2 id="raises">Raises</h2>
+<dl>
+<dt><code><a title="simulacion.LoadingError" href="#simulacion.LoadingError">LoadingError</a></code></dt>
+<dd>Error que se levanta cuando no se puede leer el archivo.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def impulso_desde_archivo(self, ubicacion_archivo, tiempo_inicio):
+    &#34;&#34;&#34;Método para cargar un impulso desde un archivo csv.
+
+    Args:
+        ubicacion_archivo (str): Ubicación del archivo csv.
+        tiempo_inicio (float): Tiempo en el que se iniciará el impulso. En segundos.
+
+    Raises:
+        LoadingError: Error que se levanta cuando no se puede leer el archivo.
+    &#34;&#34;&#34;
+    try:
+        impulso = np.genfromtxt(ubicacion_archivo, delimiter=&#39;,&#39;)
+    except Exception as e:
+        raise LoadingError(&#39;Fallo en la carga del archivo.&#39;) from e
+
+    self.impulso_manual(array_impulso=impulso, tiempo_inicio=tiempo_inicio)</code></pre>
+</details>
+</dd>
+<dt id="simulacion.Generador.impulso_manual"><code class="name flex">
+<span>def <span class="ident">impulso_manual</span></span>(<span>self, array_impulso, tiempo_inicio)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Método para crear un impulso de forma manual, a partir de un array con la señal.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>array_impulso</code></strong> :&ensp;<code>numpy.ndarray</code></dt>
+<dd>Array con la señal que se propagará por las fibras del nervio.</dd>
+<dt><strong><code>tiempo_inicio</code></strong> :&ensp;<code>float</code></dt>
+<dd>Tiempo en el que inicia el impulso. En segundos.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def impulso_manual(self, array_impulso, tiempo_inicio):
+    &#34;&#34;&#34;Método para crear un impulso de forma manual, a partir de un array con la señal.
+
+    Args:
+        array_impulso (numpy.ndarray): Array con la señal que se propagará por las fibras del nervio.
+        tiempo_inicio (float): Tiempo en el que inicia el impulso. En segundos.
+    &#34;&#34;&#34;
+    if len(array_impulso) != self.num_fibras:
+        raise InputError(&#34;EL array con la señal del impulso debe tener tantas filas como fibras haya en el nervio.&#34;)
+    impulse = np.zeros((len(array_impulso), self.cant_muestras))
+    inicio = int(tiempo_inicio * self.frec)
+    flag = False
+
+    if not np.isnan(sum(array_impulso)).any() and np.issubdtype(array_impulso.dtype, np.number):
+        for i, est in enumerate(array_impulso):
+            muestras_impulso = len(est)
+            if muestras_impulso &gt; self.cant_muestras - inicio:
+                muestras_impulso = self.cant_muestras - inicio
+                flag = True
+            impulse[i][inicio:inicio + muestras_impulso] = array_impulso[i][:muestras_impulso]
+    if flag is True:
+        print(&#34;Se recortó por lo menos una señal de impulso debido a su tamaño.&#34;)
+
+    impulse_normalizado = impulse / np.amax(impulse, axis=1, keepdims=True)
+    self.impulso = impulse_normalizado</code></pre>
+</details>
+</dd>
+<dt id="simulacion.Generador.potencial_de_accion"><code class="name flex">
+<span>def <span class="ident">potencial_de_accion</span></span>(<span>self, tiempo_inicio, lista_inicio, frec_corte, orden_filtro)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Método para crear un potencial de acción.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>tiempo_inicio</code></strong> :&ensp;<code>float</code></dt>
+<dd>Tiempo en el que se desea iniciar el impulso. En segundos.</dd>
+<dt><strong><code>lista_tiempo_inicio</code></strong> :&ensp;<code>list</code></dt>
+<dd>Lista con los tiempos (en segundos) en donde comenzará la señal.</dd>
+<dt><strong><code>frec_corte</code></strong> :&ensp;<code>float</code></dt>
+<dd>Frecuencia de corte del filtro pasabajos Butterworth. En Hz.</dd>
+<dt><strong><code>orden_filtro</code></strong> :&ensp;<code>int</code></dt>
+<dd>Orden del filtro Butterworth.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def potencial_de_accion(self, tiempo_inicio, lista_inicio, frec_corte, orden_filtro):
+    &#34;&#34;&#34;Método para crear un potencial de acción.
+
+    Args:
+        tiempo_inicio (float): Tiempo en el que se desea iniciar el impulso. En segundos.
+        lista_tiempo_inicio (list): Lista con los tiempos (en segundos) en donde comenzará la señal.
+        frec_corte (float): Frecuencia de corte del filtro pasabajos Butterworth. En Hz.
+        orden_filtro (int): Orden del filtro Butterworth.
+    &#34;&#34;&#34;
+
+    if lista_inicio is not None:
+        inicio = [int(i * self.frec) for i in lista_inicio]
+    else:
+        inicio = int(tiempo_inicio * self.frec)
+
+    #Señal de entrada
+    x = np.zeros_like(self.vector_tiempo)
+    x[inicio] = 1
+
+    #Filtro Butter
+    b, a = signal.butter(orden_filtro, frec_corte / (self.frec / 2))
+    Vm = signal.lfilter(b, a, x)
+    Vm = Vm / np.max(Vm)  #Vm normalizado
+
+    self.impulso = np.repeat([Vm], self.num_fibras, axis=0)</code></pre>
+</details>
 </dd>
 </dl>
 </dd>
@@ -4834,46 +4838,6 @@ Datos del estimulador:
 </dd>
 </dl>
 </dd>
-<dt id="simulacion.TipoEstimulo"><code class="flex name class">
-<span>class <span class="ident">TipoEstimulo</span></span>
-<span>(</span><span>value, names=None, *, module=None, qualname=None, type=None, start=1)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>An enumeration.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">class TipoEstimulo(Enum):
-    potencial_de_accion = &#39;potencial_de_accion&#39;
-    cuadrado = &#39;cuadrado&#39;
-    manual = &#39;manual&#39;
-    desde_archivo = &#39;desde_archivo&#39;</code></pre>
-</details>
-<h3>Ancestors</h3>
-<ul class="hlist">
-<li>enum.Enum</li>
-</ul>
-<h3>Class variables</h3>
-<dl>
-<dt id="simulacion.TipoEstimulo.cuadrado"><code class="name">var <span class="ident">cuadrado</span></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="simulacion.TipoEstimulo.desde_archivo"><code class="name">var <span class="ident">desde_archivo</span></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="simulacion.TipoEstimulo.manual"><code class="name">var <span class="ident">manual</span></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="simulacion.TipoEstimulo.potencial_de_accion"><code class="name">var <span class="ident">potencial_de_accion</span></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-</dl>
-</dd>
 <dt id="simulacion.TipoFibra"><code class="flex name class">
 <span>class <span class="ident">TipoFibra</span></span>
 <span>(</span><span>value, names=None, *, module=None, qualname=None, type=None, start=1)</span>
@@ -4899,6 +4863,46 @@ Datos del estimulador:
 <div class="desc"></div>
 </dd>
 <dt id="simulacion.TipoFibra.puntual"><code class="name">var <span class="ident">puntual</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="simulacion.TipoImpulso"><code class="flex name class">
+<span>class <span class="ident">TipoImpulso</span></span>
+<span>(</span><span>value, names=None, *, module=None, qualname=None, type=None, start=1)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>An enumeration.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class TipoImpulso(Enum):
+    potencial_de_accion = &#39;potencial_de_accion&#39;
+    cuadrado = &#39;cuadrado&#39;
+    manual = &#39;manual&#39;
+    desde_archivo = &#39;desde_archivo&#39;</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>enum.Enum</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="simulacion.TipoImpulso.cuadrado"><code class="name">var <span class="ident">cuadrado</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="simulacion.TipoImpulso.desde_archivo"><code class="name">var <span class="ident">desde_archivo</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="simulacion.TipoImpulso.manual"><code class="name">var <span class="ident">manual</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="simulacion.TipoImpulso.potencial_de_accion"><code class="name">var <span class="ident">potencial_de_accion</span></code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -4951,7 +4955,7 @@ Datos del estimulador:
 <li><code><a title="simulacion.funcion_constante" href="#simulacion.funcion_constante">funcion_constante</a></code></li>
 <li><code><a title="simulacion.funcion_gaussiana" href="#simulacion.funcion_gaussiana">funcion_gaussiana</a></code></li>
 <li><code><a title="simulacion.funcion_trapecio" href="#simulacion.funcion_trapecio">funcion_trapecio</a></code></li>
-<li><code><a title="simulacion.insertar_estimulo" href="#simulacion.insertar_estimulo">insertar_estimulo</a></code></li>
+<li><code><a title="simulacion.insertar_impulso" href="#simulacion.insertar_impulso">insertar_impulso</a></code></li>
 <li><code><a title="simulacion.is_inside_circencirc" href="#simulacion.is_inside_circencirc">is_inside_circencirc</a></code></li>
 </ul>
 </li>
@@ -4977,23 +4981,13 @@ Datos del estimulador:
 <li><code><a title="simulacion.Entorno.cap" href="#simulacion.Entorno.cap">cap</a></code></li>
 <li><code><a title="simulacion.Entorno.cap_diferencial" href="#simulacion.Entorno.cap_diferencial">cap_diferencial</a></code></li>
 <li><code><a title="simulacion.Entorno.crear_electrodo" href="#simulacion.Entorno.crear_electrodo">crear_electrodo</a></code></li>
-<li><code><a title="simulacion.Entorno.crear_estimulo" href="#simulacion.Entorno.crear_estimulo">crear_estimulo</a></code></li>
+<li><code><a title="simulacion.Entorno.crear_impulso" href="#simulacion.Entorno.crear_impulso">crear_impulso</a></code></li>
 <li><code><a title="simulacion.Entorno.crear_nervio" href="#simulacion.Entorno.crear_nervio">crear_nervio</a></code></li>
 <li><code><a title="simulacion.Entorno.dibujar_entorno" href="#simulacion.Entorno.dibujar_entorno">dibujar_entorno</a></code></li>
 <li><code><a title="simulacion.Entorno.graficas" href="#simulacion.Entorno.graficas">graficas</a></code></li>
 <li><code><a title="simulacion.Entorno.informacion_json" href="#simulacion.Entorno.informacion_json">informacion_json</a></code></li>
 <li><code><a title="simulacion.Entorno.informe_experimento" href="#simulacion.Entorno.informe_experimento">informe_experimento</a></code></li>
 <li><code><a title="simulacion.Entorno.quitar_electrodo" href="#simulacion.Entorno.quitar_electrodo">quitar_electrodo</a></code></li>
-</ul>
-</li>
-<li>
-<h4><code><a title="simulacion.Estimulador" href="#simulacion.Estimulador">Estimulador</a></code></h4>
-<ul class="">
-<li><code><a title="simulacion.Estimulador.crear_estimulo" href="#simulacion.Estimulador.crear_estimulo">crear_estimulo</a></code></li>
-<li><code><a title="simulacion.Estimulador.estimulo_cuadrado" href="#simulacion.Estimulador.estimulo_cuadrado">estimulo_cuadrado</a></code></li>
-<li><code><a title="simulacion.Estimulador.estimulo_desde_archivo" href="#simulacion.Estimulador.estimulo_desde_archivo">estimulo_desde_archivo</a></code></li>
-<li><code><a title="simulacion.Estimulador.estimulo_manual" href="#simulacion.Estimulador.estimulo_manual">estimulo_manual</a></code></li>
-<li><code><a title="simulacion.Estimulador.potencial_de_accion" href="#simulacion.Estimulador.potencial_de_accion">potencial_de_accion</a></code></li>
 </ul>
 </li>
 <li>
@@ -5009,6 +5003,16 @@ Datos del estimulador:
 <ul class="">
 <li><code><a title="simulacion.FormaDePloteo.fibras_con_diametro" href="#simulacion.FormaDePloteo.fibras_con_diametro">fibras_con_diametro</a></code></li>
 <li><code><a title="simulacion.FormaDePloteo.fibras_sin_diametro" href="#simulacion.FormaDePloteo.fibras_sin_diametro">fibras_sin_diametro</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="simulacion.Generador" href="#simulacion.Generador">Generador</a></code></h4>
+<ul class="">
+<li><code><a title="simulacion.Generador.crear_impulso" href="#simulacion.Generador.crear_impulso">crear_impulso</a></code></li>
+<li><code><a title="simulacion.Generador.impulso_cuadrado" href="#simulacion.Generador.impulso_cuadrado">impulso_cuadrado</a></code></li>
+<li><code><a title="simulacion.Generador.impulso_desde_archivo" href="#simulacion.Generador.impulso_desde_archivo">impulso_desde_archivo</a></code></li>
+<li><code><a title="simulacion.Generador.impulso_manual" href="#simulacion.Generador.impulso_manual">impulso_manual</a></code></li>
+<li><code><a title="simulacion.Generador.potencial_de_accion" href="#simulacion.Generador.potencial_de_accion">potencial_de_accion</a></code></li>
 </ul>
 </li>
 <li>
@@ -5059,19 +5063,19 @@ Datos del estimulador:
 </ul>
 </li>
 <li>
-<h4><code><a title="simulacion.TipoEstimulo" href="#simulacion.TipoEstimulo">TipoEstimulo</a></code></h4>
-<ul class="">
-<li><code><a title="simulacion.TipoEstimulo.cuadrado" href="#simulacion.TipoEstimulo.cuadrado">cuadrado</a></code></li>
-<li><code><a title="simulacion.TipoEstimulo.desde_archivo" href="#simulacion.TipoEstimulo.desde_archivo">desde_archivo</a></code></li>
-<li><code><a title="simulacion.TipoEstimulo.manual" href="#simulacion.TipoEstimulo.manual">manual</a></code></li>
-<li><code><a title="simulacion.TipoEstimulo.potencial_de_accion" href="#simulacion.TipoEstimulo.potencial_de_accion">potencial_de_accion</a></code></li>
-</ul>
-</li>
-<li>
 <h4><code><a title="simulacion.TipoFibra" href="#simulacion.TipoFibra">TipoFibra</a></code></h4>
 <ul class="">
 <li><code><a title="simulacion.TipoFibra.no_puntual" href="#simulacion.TipoFibra.no_puntual">no_puntual</a></code></li>
 <li><code><a title="simulacion.TipoFibra.puntual" href="#simulacion.TipoFibra.puntual">puntual</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="simulacion.TipoImpulso" href="#simulacion.TipoImpulso">TipoImpulso</a></code></h4>
+<ul class="">
+<li><code><a title="simulacion.TipoImpulso.cuadrado" href="#simulacion.TipoImpulso.cuadrado">cuadrado</a></code></li>
+<li><code><a title="simulacion.TipoImpulso.desde_archivo" href="#simulacion.TipoImpulso.desde_archivo">desde_archivo</a></code></li>
+<li><code><a title="simulacion.TipoImpulso.manual" href="#simulacion.TipoImpulso.manual">manual</a></code></li>
+<li><code><a title="simulacion.TipoImpulso.potencial_de_accion" href="#simulacion.TipoImpulso.potencial_de_accion">potencial_de_accion</a></code></li>
 </ul>
 </li>
 <li>

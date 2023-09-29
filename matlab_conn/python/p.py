@@ -23,7 +23,7 @@ def main():
                         type=float,
                         help='Zona de influencia en el eje z del segundo electrodo')
     parser.add_argument('-m', '--frec_muestreo', type=float, help='Frecuencia de muestreo')
-    parser.add_argument('-n', '--tiempo_estimulo', type=float, help='Tiempo total de estimulo')
+    parser.add_argument('-n', '--tiempo_impulso', type=float, help='Tiempo total de impulso')
     parser.add_argument('-o', '--tiempo_inicio', type=float, help='Tiempo de inicio')
     parser.add_argument('-p', '--frec_corte', type=float, help='Frecuencia de corte del filtro')
     parser.add_argument('-q', '--orden_filtro', type=int, help='Orden del filtro')
@@ -67,12 +67,12 @@ def main():
                             grosor=0,
                             funcion=simulacion.funcion_trapecio)
 
-    entorno.crear_estimulo(tipo_estimulo='potencial_de_accion',
-                           frec_muestreo=args.frec_muestreo,
-                           tiempo_estimulo=args.tiempo_estimulo,
-                           tiempo_inicio=args.tiempo_inicio,
-                           frec_corte=args.frec_corte,
-                           orden_filtro=args.orden_filtro)
+    entorno.crear_impulso(tipo_impulso='potencial_de_accion',
+                          frec_muestreo=args.frec_muestreo,
+                          tiempo_impulso=args.tiempo_impulso,
+                          tiempo_inicio=args.tiempo_inicio,
+                          frec_corte=args.frec_corte,
+                          orden_filtro=args.orden_filtro)
 
     entorno.cap()
     entorno.cap_diferencial(posicion_1=0, posicion_2=1)
